@@ -219,7 +219,14 @@ export default function Admin() {
           {reportError && <p className="hint warn">{reportError}</p>}
           {reportLoading && <p className="hint">Memuat laporan...</p>}
 
-          {report && !reportError && (
+          {report && !reportError && !report[period] && (
+            <p className="hint warn">
+              Data laporan untuk periode ini belum tersedia. Pastikan Apps Script sudah di-deploy
+              versi terbaru, lalu klik "Muat Ulang".
+            </p>
+          )}
+
+          {report && !reportError && report[period] && (
             <>
               <div className="feat-actions">
                 {Object.keys(PERIOD_LABELS).map((k) => (
