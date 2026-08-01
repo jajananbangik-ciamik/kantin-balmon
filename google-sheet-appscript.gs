@@ -24,8 +24,19 @@
 
 const TOKEN = ''; // ganti, mis. TOKEN = 'rahasia123';
 
+// Isi dengan ID spreadsheet yang dipakai untuk rekap & stok.
+// Contoh URL: https://docs.google.com/spreadsheets/d/ABCDEF12345/edit
+// maka ID = ABCDEF12345
+// Biarkan '' kalau script dibuat lewat Extensions > Apps Script dari spreadsheet.
+const SPREADSHEET_ID = '';
+
+function getSpreadsheet_() {
+  if (SPREADSHEET_ID) return SpreadsheetApp.openById(SPREADSHEET_ID);
+  return SpreadsheetApp.getActiveSpreadsheet();
+}
+
 function getStokSheet_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheet_();
   let sh = ss.getSheetByName('Stok');
   if (!sh) {
     sh = ss.insertSheet('Stok');
@@ -35,7 +46,7 @@ function getStokSheet_() {
 }
 
 function getPesananSheet_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheet_();
   let sh = ss.getSheetByName('Pesanan');
   if (!sh) {
     sh = ss.insertSheet('Pesanan');
