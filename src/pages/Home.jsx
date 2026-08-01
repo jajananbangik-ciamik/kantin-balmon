@@ -35,6 +35,15 @@ export default function Home() {
       </section>
 
       <section className="section">
+        <h2 className="section-title">Menu Unggulan</h2>
+        <div className="product-grid">
+          {featuredList.map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
+        </div>
+      </section>
+
+      <section className="section">
         <h2 className="section-title">Kategori</h2>
         <div className="category-grid">
           {categories.map((c) => (
@@ -42,15 +51,6 @@ export default function Home() {
               <span className="category-name">{c.name}</span>
               <span className="category-tagline">{c.tagline}</span>
             </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="section">
-        <h2 className="section-title">Menu Unggulan</h2>
-        <div className="product-grid">
-          {featuredList.map((p) => (
-            <ProductCard key={p.id} product={p} />
           ))}
         </div>
       </section>
