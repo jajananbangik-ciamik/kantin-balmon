@@ -1,9 +1,10 @@
 import { useParams } from 'react-router-dom'
-import { getCategory, getProductsByCategory } from '../data/products'
+import { useCatalog } from '../context/CatalogContext'
 import ProductCard from '../components/ProductCard'
 
 export default function CategoryPage() {
   const { slug } = useParams()
+  const { getCategory, getProductsByCategory } = useCatalog()
   const category = getCategory(slug)
   const items = getProductsByCategory(slug)
 

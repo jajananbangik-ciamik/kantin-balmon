@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useStock } from '../context/StockContext'
-import { getProduct, formatRupiah } from '../data/products'
+import { useCatalog } from '../context/CatalogContext'
+import { formatRupiah } from '../data/products'
 import { sendOrderToSheets } from '../utils/sheets'
 
 const ORDERS_KEY = 'kantin-balmon-orders'
@@ -18,6 +19,7 @@ const loadHistory = () => {
 export default function Checkout() {
   const { items, linePrice, subtotal, clearCart } = useCart()
   const { decrementStock, refresh } = useStock()
+  const { getProduct } = useCatalog()
   const [name, setName] = useState('')
   const [notes, setNotes] = useState('')
   const [order, setOrder] = useState(null)

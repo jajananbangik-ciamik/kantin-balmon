@@ -58,8 +58,32 @@ export async function fetchStocks() {
     if (!res.ok) return { ok: false, reason: 'http-' + res.status }
     const data = await res.json()
     if (data && data.ok) {
-      return { ok: true, stocks: data.stocks || {}, featured: data.featured || [] }
+      return {
+        ok: true,
+        stocks: data.stocks || {},
+        featured: data.featured || [],
+        products: data.products || [],
+      }
     }
+    return { ok: false, reason: 'bad-response' }
+  } catch (err) {
+    return { ok: false, reason: err.message }
+  }
+}
+
+export async function saveProducts(rows) {
+  const url = getSheetsUrl()
+  if (!url) return { ok: false, reason: 'not-configured' }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'setProducts', products: rows, token: getStockToken() }),
+    })
+    if (!res.ok) return { ok: false, reason: 'http-' + res.status }
+    const data = await res.json()
+    if (data && data.ok) return { ok: true, products: data.products || [] }
+    if (data && data.error) return { ok: false, reason: data.error }
     return { ok: false, reason: 'bad-response' }
   } catch (err) {
     return { ok: false, reason: err.message }

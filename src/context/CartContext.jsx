@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { getProduct } from '../data/products'
+import { useCatalog } from './CatalogContext'
 
 const CartContext = createContext(null)
 const STORAGE_KEY = 'kantin-balmon-cart'
@@ -16,6 +16,7 @@ const loadCart = () => {
 const lineId = (productId, variantLabel) => `${productId}::${variantLabel || ''}`
 
 export function CartProvider({ children }) {
+  const { getProduct } = useCatalog()
   const [items, setItems] = useState(loadCart)
 
   useEffect(() => {

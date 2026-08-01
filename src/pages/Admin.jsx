@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { categories, products, formatRupiah } from '../data/products'
+import { products as baseProducts, formatRupiah } from '../data/products'
 import { useUploads, resizeImageFile } from '../context/UploadsContext'
 import { useStock } from '../context/StockContext'
+import { useCatalog } from '../context/CatalogContext'
 import { getSheetsUrl, setSheetsUrl, getStockToken, setStockToken, fetchReport, saveModals } from '../utils/sheets'
 import ProductImage from '../components/ProductImage'
 
@@ -16,6 +17,13 @@ export default function Admin() {
   const { uploads, setUpload, removeUpload } = useUploads()
   const { getStock, setStock, removeStock, refresh, syncing, isCentral, featured, updateFeatured, loaded } =
     useStock()
+  const {
+    products,
+    categories,
+    saveCatalog,
+    loaded: catLoaded,
+    syncing: catSyncing,
+  } = useCatalog()
   const [tab, setTab] = useState('stok')
   const [busyId, setBusyId] = useState(null)
   const [stockInputs, setStockInputs] = useState({})
@@ -32,7 +40,38 @@ export default function Admin() {
   const [reportError, setReportError] = useState('')
   const [modalDirty, setModalDirty] = useState(false)
   const [modalSaved, setModalSaved] = useState(false)
+  const [menuDraft, setMenuDraft] = useState(null)
+  const [menuLoaded, setMenuLoaded] = useState(false)
+  const [menuSearch, setMenuSearch] = useState('')
+  const [menuSaving, setMenuSaving] = useState(false)
+  const [menuSaved, setMenuSaved] = useState(false)
   const fileRef = useRef(null)
+
+  useEffect(() => {
+    if (tab === 'menu' && !menuLoaded && products.length) {
+      const visible = products.map((p) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        price: p.price ?? null,
+        priceNote: p.priceNote || '',
+        active: true,
+      }))
+      const hidden = baseProducts
+        .filter((b) => !products.some((p) => p.id === b.id))
+        .map((b) => ({
+          id: b.id,
+          name: b.name,
+          category: b.category,
+          price: b.price ?? null,
+          priceNote: b.priceNote || '',
+          active: false,
+        }))
+      setMenuDraft([...visible, ...hidden])
+      setMenuLoaded(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, menuLoaded, products])
 
   useEffect(() => {
     if (tab === 'laporan') {
@@ -148,6 +187,45 @@ export default function Admin() {
     setFeatDraft(null)
   }
 
+  const updateMenuRow = (id, field, value) => {
+    setMenuDraft((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)),
+    )
+  }
+
+  const removeMenuRow = (id) => {
+    setMenuDraft((prev) => prev.filter((r) => r.id !== id))
+  }
+
+  const addMenuRow = () => {
+    setMenuDraft((prev) => [
+      ...prev,
+      {
+        id: 'produk-' + Date.now().toString().slice(-6),
+        name: 'Produk Baru',
+        category: categories[0]?.slug || '',
+        price: null,
+        priceNote: '',
+        active: true,
+      },
+    ])
+  }
+
+  const saveMenu = async () => {
+    if (!menuDraft) return
+    setMenuSaving(true)
+    const res = await saveCatalog(menuDraft)
+    if (!res.ok) {
+      alert('Gagal menyimpan menu: ' + res.reason)
+    } else {
+      setMenuSaved(true)
+      setTimeout(() => setMenuSaved(false), 2000)
+      setMenuLoaded(false)
+      setMenuDraft(null)
+    }
+    setMenuSaving(false)
+  }
+
   return (
     <div className="page">
       <div className="page-head">
@@ -212,9 +290,104 @@ export default function Admin() {
         >
           Laporan Keuntungan
         </button>
+        <button
+          className={`admin-tab${tab === 'menu' ? ' active' : ''}`}
+          onClick={() => setTab('menu')}
+        >
+          Menu Jajanan
+        </button>
       </div>
 
-      {tab === 'laporan' ? (
+      {tab === 'menu' ? (
+        <div>
+          <p className="hint">
+            {isCentral
+              ? 'Ubah nama, harga, kategori, atau sembunyikan produk. Perubahan tersimpan terpusat dan langsung tampil untuk semua pengunjung.'
+              : 'Mode lokal: perubahan hanya tampil di perangkat ini. Hubungkan Google Sheets agar tampil untuk semua.'}
+          </p>
+          {!catLoaded && <p className="hint">Memuat data...</p>}
+          <div className="feat-actions">
+            <button className="btn btn-primary" onClick={saveMenu} disabled={!menuDraft || menuSaving}>
+              {menuSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
+            </button>
+            <button className="btn btn-outline" onClick={addMenuRow}>
+              + Tambah Produk
+            </button>
+            {menuSaved && <span className="hint ok">Tersimpan.</span>}
+          </div>
+          <input
+            type="text"
+            className="menu-search"
+            placeholder="Cari produk..."
+            value={menuSearch}
+            onChange={(e) => setMenuSearch(e.target.value)}
+          />
+          {!menuDraft ? (
+            <p className="hint">Menyiapkan daftar...</p>
+          ) : (
+            <div className="stock-list">
+              {menuDraft
+                .filter((r) => !menuSearch || r.name.toLowerCase().includes(menuSearch.toLowerCase()))
+                .map((r) => (
+                  <div key={r.id} className={`stock-row menu-row${r.active ? '' : ' off'}`}>
+                    <div className="stock-info menu-info">
+                      <input
+                        className="menu-input"
+                        value={r.name}
+                        onChange={(e) => updateMenuRow(r.id, 'name', e.target.value)}
+                      />
+                      <input
+                        className="menu-input small"
+                        value={r.priceNote ?? ''}
+                        placeholder="Catatan harga (opsional)"
+                        onChange={(e) => updateMenuRow(r.id, 'priceNote', e.target.value)}
+                      />
+                    </div>
+                    <div className="stock-actions">
+                      <input
+                        type="number"
+                        min="0"
+                        className="menu-price"
+                        value={r.price ?? ''}
+                        placeholder="Harga"
+                        onChange={(e) =>
+                          updateMenuRow(r.id, 'price', e.target.value === '' ? null : Number(e.target.value))
+                        }
+                      />
+                      <select
+                        className="menu-select"
+                        value={r.category}
+                        onChange={(e) => updateMenuRow(r.id, 'category', e.target.value)}
+                      >
+                        {categories.map((c) => (
+                          <option key={c.slug} value={c.slug}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                      <label className="menu-toggle">
+                        <input
+                          type="checkbox"
+                          checked={r.active}
+                          onChange={(e) => updateMenuRow(r.id, 'active', e.target.checked)}
+                        />
+                        Tampil
+                      </label>
+                      <button
+                        className="btn btn-outline"
+                        onClick={() => removeMenuRow(r.id)}
+                        disabled={!r.active}
+                        title={r.active ? 'Hapus/hilangkan produk' : 'Produk sudah tidak tampil'}
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      ) : tab === 'laporan' ? (
         <div>
           {reportError && <p className="hint warn">{reportError}</p>}
           {reportLoading && <p className="hint">Memuat laporan...</p>}

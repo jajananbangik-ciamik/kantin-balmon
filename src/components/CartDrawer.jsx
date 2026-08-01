@@ -1,9 +1,11 @@
 import { useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
-import { getProduct, formatRupiah } from '../data/products'
+import { formatRupiah } from '../data/products'
+import { useCatalog } from '../context/CatalogContext'
 
 export default function CartDrawer({ open, onClose }) {
   const { items, increment, decrement, removeItem, linePrice, itemCount, subtotal } = useCart()
+  const { getProduct } = useCatalog()
   const navigate = useNavigate()
 
   if (!open) return null

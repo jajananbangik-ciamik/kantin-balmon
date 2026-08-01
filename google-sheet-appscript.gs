@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // KANTIN BALMON — Google Sheets (Pesanan + Stok Terpusat)
 // ------------------------------------------------------------
 // CARA SETUP (sekali saja, gratis):
@@ -22,13 +22,13 @@
 // Sheet "Stok"    = stok terpusat (Produk ID, Nama, Stok).
 // ============================================================
 
-const TOKEN = ''; // ganti, mis. TOKEN = 'rahasia123';
+const TOKEN = ' rahasia123'; // ganti, mis. TOKEN = 'rahasia123';
 
 // Isi dengan ID spreadsheet yang dipakai untuk rekap & stok.
 // Contoh URL: https://docs.google.com/spreadsheets/d/ABCDEF12345/edit
 // maka ID = ABCDEF12345
 // Biarkan '' kalau script dibuat lewat Extensions > Apps Script dari spreadsheet.
-const SPREADSHEET_ID = '';
+const SPREADSHEET_ID = ' 11THyvEdd78ja45NsjXBB5Q7iRaXzGfteniCJEpTR79o';
 
 function getSpreadsheet_() {
   if (SPREADSHEET_ID) return SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -179,6 +179,52 @@ function getDetailSheet_() {
   return sh;
 }
 
+function getProdukSheet_() {
+  const ss = getSpreadsheet_();
+  let sh = ss.getSheetByName('Produk');
+  if (!sh) {
+    sh = ss.insertSheet('Produk');
+    sh.appendRow(['Produk ID', 'Nama', 'Kategori', 'Harga', 'Catatan', 'Aktif']);
+  }
+  return sh;
+}
+
+function readProducts_() {
+  const sh = getProdukSheet_();
+  const rows = sh.getDataRange().getValues();
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const id = rows[i][0];
+    if (id == null || String(id).trim() === '') continue;
+    const price = rows[i][3];
+    out.push({
+      id: String(id),
+      name: String(rows[i][1] || ''),
+      category: String(rows[i][2] || ''),
+      price: price !== '' && price != null ? Number(price) : null,
+      priceNote: String(rows[i][4] || ''),
+      active: String(rows[i][5]) === '0' ? false : true,
+    });
+  }
+  return out;
+}
+
+function writeProducts_(rows) {
+  const sh = getProdukSheet_();
+  sh.clearContents();
+  sh.appendRow(['Produk ID', 'Nama', 'Kategori', 'Harga', 'Catatan', 'Aktif']);
+  (Array.isArray(rows) ? rows : []).forEach(function (r) {
+    sh.appendRow([
+      String(r.id || ''),
+      r.name || '',
+      r.category || '',
+      r.price != null && r.price !== '' ? Number(r.price) : '',
+      r.priceNote || '',
+      r.active === false ? '0' : '1',
+    ]);
+  });
+}
+
 function computeReport_() {
   const sh = getDetailSheet_();
   const rows = sh.getDataRange().getValues();
@@ -260,7 +306,12 @@ function doGet(e) {
     if (!authorized_({ token: p.token })) return json_({ ok: false, error: 'forbidden' });
     return json_({ ok: true, periods: computeReport_(), modals: readModals_() });
   }
-  return json_({ ok: true, stocks: readStocks_(), featured: readFeatured_() });
+  return json_({
+    ok: true,
+    stocks: readStocks_(),
+    featured: readFeatured_(),
+    products: readProducts_(),
+  });
 }
 
 function doPost(e) {
@@ -300,6 +351,12 @@ function doPost(e) {
       writeModal_(id, modals[id]);
     });
     return json_({ ok: true, modals: readModals_() });
+  }
+
+  if (action === 'setProducts') {
+    if (!authorized_(data)) return json_({ ok: false, error: 'forbidden' });
+    writeProducts_(data.products);
+    return json_({ ok: true, products: readProducts_() });
   }
 
   if (action === 'order') {

@@ -938,6 +938,79 @@ a {
   padding: 7px 10px;
 }
 
+/* ---------- Admin: menu jajanan ---------- */
+.menu-row {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.menu-row.off {
+  opacity: 0.55;
+}
+
+.menu-info {
+  width: 100%;
+}
+
+.menu-input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+  color: var(--ink);
+}
+
+.menu-input.small {
+  margin-top: 4px;
+}
+
+.menu-price {
+  width: 100px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 9px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+  color: var(--ink);
+}
+
+.menu-select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 8px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+  color: var(--ink);
+}
+
+.menu-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+}
+
+.menu-search {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+  color: var(--ink);
+  margin: 12px 0;
+}
+
 /* ---------- Stock badge on product card ---------- */
 .stock-badge {
   display: inline-block;

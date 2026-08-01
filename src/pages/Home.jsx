@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
-import { categories, products } from '../data/products'
 import { useStock } from '../context/StockContext'
+import { useCatalog } from '../context/CatalogContext'
 import ProductCard from '../components/ProductCard'
 
 const DEFAULT_FEATURED = [
@@ -20,6 +20,7 @@ const DEFAULT_FEATURED = [
 
 export default function Home() {
   const { featured } = useStock()
+  const { categories, products } = useCatalog()
   const ids = featured && featured.length ? featured : DEFAULT_FEATURED
   const featuredList = ids.map((id) => products.find((p) => p.id === id)).filter(Boolean)
 

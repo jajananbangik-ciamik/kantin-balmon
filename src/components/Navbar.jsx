@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
-import { categories } from '../data/products'
+import { useCatalog } from '../context/CatalogContext'
 import { useCart } from '../context/CartContext'
 
 export default function Navbar({ onCartOpen }) {
   const { itemCount } = useCart()
+  const { categories } = useCatalog()
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
