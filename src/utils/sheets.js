@@ -1,0 +1,84 @@
+export const SHEETS_URL_KEY = 'kantin-balmon-sheets-url'
+export const STOCK_TOKEN_KEY = 'kantin-balmon-stock-token'
+
+export const getSheetsUrl = () => {
+  try {
+    return localStorage.getItem(SHEETS_URL_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+export const setSheetsUrl = (url) => {
+  try {
+    localStorage.setItem(SHEETS_URL_KEY, url)
+    window.dispatchEvent(new Event('kantin-balmon-sheets-url'))
+  } catch {
+    /* ignore */
+  }
+}
+
+export const getStockToken = () => {
+  try {
+    return localStorage.getItem(STOCK_TOKEN_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+export const setStockToken = (token) => {
+  try {
+    localStorage.setItem(STOCK_TOKEN_KEY, token)
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function sendOrderToSheets(order) {
+  const url = getSheetsUrl()
+  if (!url) return { ok: false, reason: 'not-configured' }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(order),
+    })
+    if (!res.ok) return { ok: false, reason: 'http-' + res.status }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, reason: err.message }
+  }
+}
+
+export async function fetchStocks() {
+  const url = getSheetsUrl()
+  if (!url) return { ok: false, reason: 'not-configured' }
+  try {
+    const res = await fetch(`${url}?action=stocks&_=${Date.now()}`)
+    if (!res.ok) return { ok: false, reason: 'http-' + res.status }
+    const data = await res.json()
+    if (data && data.ok && data.stocks) return { ok: true, stocks: data.stocks }
+    return { ok: false, reason: 'bad-response' }
+  } catch (err) {
+    return { ok: false, reason: err.message }
+  }
+}
+
+export async function sendStockAction(action, productId, value) {
+  const url = getSheetsUrl()
+  if (!url) return { ok: false, reason: 'not-configured' }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, productId, value, token: getStockToken() }),
+    })
+    if (!res.ok) return { ok: false, reason: 'http-' + res.status }
+    const data = await res.json()
+    if (data && data.ok && data.stocks) return { ok: true, stocks: data.stocks }
+    if (data && data.error) return { ok: false, reason: data.error }
+    return { ok: false, reason: 'bad-response' }
+  } catch (err) {
+    return { ok: false, reason: err.message }
+  }
+}

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { CartProvider } from './context/CartContext'
 import { UploadsProvider } from './context/UploadsContext'
+import { StockProvider } from './context/StockContext'
 import Navbar from './components/Navbar'
 import CartDrawer from './components/CartDrawer'
 import Footer from './components/Footer'
@@ -15,19 +16,21 @@ export default function App() {
 
   return (
     <UploadsProvider>
-      <CartProvider>
-        <Navbar onCartOpen={() => setCartOpen(true)} />
-        <main>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/kategori/:slug" element={<CategoryPage />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/admin" element={<Admin />} />
-          </Routes>
-        </main>
-        <Footer />
-        <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
-      </CartProvider>
+      <StockProvider>
+        <CartProvider>
+          <Navbar onCartOpen={() => setCartOpen(true)} />
+          <main>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/kategori/:slug" element={<CategoryPage />} />
+              <Route path="/checkout" element={<Checkout />} />
+              <Route path="/admin" element={<Admin />} />
+            </Routes>
+          </main>
+          <Footer />
+          <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
+        </CartProvider>
+      </StockProvider>
     </UploadsProvider>
   )
 }

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
+import { useStock } from '../context/StockContext'
 import { getProduct, formatRupiah } from '../data/products'
+import { sendOrderToSheets } from '../utils/sheets'
 
 const ORDERS_KEY = 'kantin-balmon-orders'
 
@@ -15,20 +17,28 @@ const loadHistory = () => {
 
 export default function Checkout() {
   const { items, linePrice, subtotal, clearCart } = useCart()
+  const { decrementStock, refresh } = useStock()
   const [name, setName] = useState('')
   const [notes, setNotes] = useState('')
   const [order, setOrder] = useState(null)
   const [history, setHistory] = useState(loadHistory)
+  const [sendStatus, setSendStatus] = useState('idle')
 
   const hasUnpriced = items.some((i) => linePrice(i) == null)
 
-  const buildOrder = () => {
+  const buildOrder = async () => {
     const id = `KB-${Date.now().toString().slice(-6)}`
     const o = {
       id,
       name: name.trim(),
       notes: notes.trim(),
-      items,
+      items: items.map((i) => ({
+        productId: i.productId,
+        name: getProduct(i.productId)?.name ?? i.productId,
+        variant: i.variantLabel || '',
+        qty: i.qty,
+        price: linePrice(i),
+      })),
       subtotal,
       createdAt: new Date().toISOString(),
     }
@@ -36,7 +46,13 @@ export default function Checkout() {
     localStorage.setItem(ORDERS_KEY, JSON.stringify(next))
     setHistory(next)
     setOrder(o)
+    items.forEach((i) => decrementStock(i.productId, i.qty))
     clearCart()
+
+    setSendStatus('sending')
+    const res = await sendOrderToSheets(o)
+    if (res.ok) await refresh()
+    setSendStatus(res.ok ? 'sent' : res.reason === 'not-configured' ? 'not-configured' : 'failed')
   }
 
   const printOrder = () => window.print()
@@ -118,12 +134,12 @@ export default function Checkout() {
           <div className="order-list">
             {order.items.map((item) => {
               const product = getProduct(item.productId)
-              const price = linePrice(item)
+              const price = item.price != null ? item.price : linePrice(item)
               return (
-                <div key={`${item.productId}::${item.variantLabel || ''}`} className="order-row">
+                <div key={`${item.productId}::${item.variant || ''}`} className="order-row">
                   <div>
-                    <p className="order-name">{product?.name}</p>
-                    {item.variantLabel && <p className="order-variant">{item.variantLabel}</p>}
+                    <p className="order-name">{product?.name ?? item.name}</p>
+                    {item.variant && <p className="order-variant">{item.variant}</p>}
                     <p className="order-unit">
                       {price != null ? formatRupiah(price) : 'Harga on request'} × {item.qty}
                     </p>
@@ -148,6 +164,18 @@ export default function Checkout() {
           </div>
           <p className="hint no-print">
             Ambil sendiri item di rak Kantin Balmon, lalu tunjukkan daftar ini ke kasir.
+          </p>
+          <p
+            className={`hint no-print send-status ${
+              sendStatus === 'sent' ? 'ok' : sendStatus === 'failed' || sendStatus === 'not-configured' ? 'warn' : ''
+            }`}
+          >
+            {sendStatus === 'sending' && 'Mengirim ke Google Sheets...'}
+            {sendStatus === 'sent' && '✓ Daftar terkirim ke Google Sheets.'}
+            {sendStatus === 'not-configured' &&
+              'Google Sheets belum dihubungkan (atur URL di halaman /admin).'}
+            {sendStatus === 'failed' &&
+              'Gagal mengirim ke Google Sheets. Daftar tetap tersimpan di perangkat ini.'}
           </p>
         </section>
       )}
