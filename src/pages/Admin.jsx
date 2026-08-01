@@ -1,9 +1,16 @@
-import { useRef, useState } from 'react'
-import { categories, products } from '../data/products'
+import { useEffect, useRef, useState } from 'react'
+import { categories, products, formatRupiah } from '../data/products'
 import { useUploads, resizeImageFile } from '../context/UploadsContext'
 import { useStock } from '../context/StockContext'
-import { getSheetsUrl, setSheetsUrl, getStockToken, setStockToken } from '../utils/sheets'
+import { getSheetsUrl, setSheetsUrl, getStockToken, setStockToken, fetchReport, saveModals } from '../utils/sheets'
 import ProductImage from '../components/ProductImage'
+
+const PERIOD_LABELS = {
+  '7hari': '7 Hari Terakhir',
+  '30hari': '30 Hari Terakhir',
+  'bulanini': 'Bulan Ini',
+  'semua': 'Semua Waktu',
+}
 
 export default function Admin() {
   const { uploads, setUpload, removeUpload } = useUploads()
@@ -18,7 +25,55 @@ export default function Admin() {
   const [featDraft, setFeatDraft] = useState(null)
   const [featSaving, setFeatSaving] = useState(false)
   const [featSaved, setFeatSaved] = useState(false)
+  const [report, setReport] = useState(null)
+  const [modals, setModals] = useState({})
+  const [period, setPeriod] = useState('7hari')
+  const [reportLoading, setReportLoading] = useState(false)
+  const [reportError, setReportError] = useState('')
+  const [modalDirty, setModalDirty] = useState(false)
+  const [modalSaved, setModalSaved] = useState(false)
   const fileRef = useRef(null)
+
+  useEffect(() => {
+    if (tab === 'laporan') {
+      loadReport()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab])
+
+  const loadReport = async () => {
+    setReportLoading(true)
+    setReportError('')
+    const res = await fetchReport()
+    if (res.ok) {
+      setReport(res.periods)
+      setModals((prev) => ({ ...prev, ...res.modals }))
+    } else {
+      setReportError(
+        res.reason === 'not-configured'
+          ? 'Google Sheets belum dihubungkan di bagian atas halaman ini.'
+          : 'Gagal memuat laporan: ' + res.reason,
+      )
+    }
+    setReportLoading(false)
+  }
+
+  const saveModalBtn = async () => {
+    const filtered = {}
+    Object.keys(modals).forEach((id) => {
+      const v = modals[id]
+      if (v !== '' && v != null && Number(v) > 0) filtered[id] = Number(v)
+    })
+    const res = await saveModals(filtered)
+    if (!res.ok) {
+      alert('Gagal menyimpan modal: ' + res.reason)
+      return
+    }
+    setModals((prev) => ({ ...prev, ...res.modals }))
+    setModalDirty(false)
+    setModalSaved(true)
+    setTimeout(() => setModalSaved(false), 2000)
+  }
 
   const onPick = async (product, file) => {
     if (!file) return
@@ -151,9 +206,129 @@ export default function Admin() {
         >
           Menu Unggulan
         </button>
+        <button
+          className={`admin-tab${tab === 'laporan' ? ' active' : ''}`}
+          onClick={() => setTab('laporan')}
+        >
+          Laporan Keuntungan
+        </button>
       </div>
 
-      {tab === 'unggulan' ? (
+      {tab === 'laporan' ? (
+        <div>
+          {reportError && <p className="hint warn">{reportError}</p>}
+          {reportLoading && <p className="hint">Memuat laporan...</p>}
+
+          {report && !reportError && (
+            <>
+              <div className="feat-actions">
+                {Object.keys(PERIOD_LABELS).map((k) => (
+                  <button
+                    key={k}
+                    className={`admin-tab${period === k ? ' active' : ''}`}
+                    onClick={() => setPeriod(k)}
+                  >
+                    {PERIOD_LABELS[k]}
+                  </button>
+                ))}
+                <button className="btn btn-outline" onClick={() => loadReport()}>
+                  Muat Ulang
+                </button>
+              </div>
+
+              <div className="report-cards">
+                <div className="report-card">
+                  <span>Pendapatan</span>
+                  <strong>{formatRupiah(report[period].revenue)}</strong>
+                </div>
+                <div className="report-card">
+                  <span>Modal</span>
+                  <strong>{formatRupiah(report[period].cost)}</strong>
+                </div>
+                <div className="report-card good">
+                  <span>Keuntungan</span>
+                  <strong>{formatRupiah(report[period].profit)}</strong>
+                </div>
+                <div className="report-card">
+                  <span>Pesanan</span>
+                  <strong>{report[period].orders}</strong>
+                </div>
+                <div className="report-card">
+                  <span>Item Terjual</span>
+                  <strong>{report[period].qty}</strong>
+                </div>
+              </div>
+              {report[period].qty === 0 && (
+                <p className="hint">
+                  Belum ada penjualan di periode ini. Keuntungan dihitung dari pesanan baru yang
+                  tercatat (yang lama di "Pesanan" tidak ikut detail).
+                </p>
+              )}
+
+              <section className="section">
+                <h2 className="section-title">Rincian per Produk ({PERIOD_LABELS[period]})</h2>
+                <div className="report-table">
+                  <div className="report-row head">
+                    <span>Produk</span>
+                    <span>Terjual</span>
+                    <span>Pendapatan</span>
+                    <span>Modal</span>
+                    <span>Untung</span>
+                  </div>
+                  {Object.values(report[period].per)
+                    .sort((a, b) => b.revenue - a.revenue)
+                    .map((r) => (
+                      <div className="report-row" key={r.name}>
+                        <span className="report-name">{r.name}</span>
+                        <span>{r.qty}</span>
+                        <span>{formatRupiah(r.revenue)}</span>
+                        <span>{r.cost ? formatRupiah(r.cost) : '—'}</span>
+                        <span className={r.profit >= 0 ? 'good' : 'bad'}>
+                          {formatRupiah(r.profit)}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </section>
+            </>
+          )}
+
+          <section className="section">
+            <h2 className="section-title">Atur Modal / HPP per Produk</h2>
+            <p className="hint">
+              Isi harga modal tiap produk agar keuntungan akurat (keuntungan = harga jual − modal).
+            </p>
+            <div className="feat-actions">
+              <button className="btn btn-primary" onClick={saveModalBtn} disabled={!modalDirty}>
+                Simpan Modal
+              </button>
+              {modalSaved && <span className="hint ok">Tersimpan.</span>}
+            </div>
+            <div className="stock-list">
+              {products.map((p) => (
+                <div key={p.id} className="stock-row">
+                  <div className="stock-info">
+                    <p className="stock-name">{p.name}</p>
+                    <p className="stock-status">{formatRupiah(p.price ?? 0)} jual</p>
+                  </div>
+                  <div className="stock-actions">
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Modal / HPP"
+                      value={modals[p.id] ?? ''}
+                      onChange={(e) => {
+                        setModals((prev) => ({ ...prev, [p.id]: e.target.value }))
+                        setModalDirty(true)
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      ) : tab === 'unggulan' ? (
         <div>
           <p className="hint">
             {isCentral

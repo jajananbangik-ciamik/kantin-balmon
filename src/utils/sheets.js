@@ -87,6 +87,43 @@ export async function setFeatured(ids) {
   }
 }
 
+export async function fetchReport() {
+  const url = getSheetsUrl()
+  if (!url) return { ok: false, reason: 'not-configured' }
+  try {
+    const token = encodeURIComponent(getStockToken())
+    const res = await fetch(`${url}?action=report&token=${token}&_=${Date.now()}`)
+    if (!res.ok) return { ok: false, reason: 'http-' + res.status }
+    const data = await res.json()
+    if (data && data.ok) {
+      return { ok: true, periods: data.periods || {}, modals: data.modals || {} }
+    }
+    if (data && data.error) return { ok: false, reason: data.error }
+    return { ok: false, reason: 'bad-response' }
+  } catch (err) {
+    return { ok: false, reason: err.message }
+  }
+}
+
+export async function saveModals(modals) {
+  const url = getSheetsUrl()
+  if (!url) return { ok: false, reason: 'not-configured' }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'setModals', modals, token: getStockToken() }),
+    })
+    if (!res.ok) return { ok: false, reason: 'http-' + res.status }
+    const data = await res.json()
+    if (data && data.ok) return { ok: true, modals: data.modals || {} }
+    if (data && data.error) return { ok: false, reason: data.error }
+    return { ok: false, reason: 'bad-response' }
+  } catch (err) {
+    return { ok: false, reason: err.message }
+  }
+}
+
 export async function sendStockAction(action, productId, value) {
   const url = getSheetsUrl()
   if (!url) return { ok: false, reason: 'not-configured' }

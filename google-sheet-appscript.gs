@@ -133,12 +133,133 @@ function writeFeatured_(ids) {
   });
 }
 
+function getModalSheet_() {
+  const ss = getSpreadsheet_();
+  let sh = ss.getSheetByName('Modal');
+  if (!sh) {
+    sh = ss.insertSheet('Modal');
+    sh.appendRow(['Produk ID', 'Nama', 'Modal']);
+  }
+  return sh;
+}
+
+function readModals_() {
+  const sh = getModalSheet_();
+  const rows = sh.getDataRange().getValues();
+  const modals = {};
+  for (let i = 1; i < rows.length; i++) {
+    const id = rows[i][0];
+    if (id != null && String(id).trim() !== '') {
+      modals[String(id)] = Number(rows[i][2]) || 0;
+    }
+  }
+  return modals;
+}
+
+function writeModal_(productId, value) {
+  const sh = getModalSheet_();
+  const n = Math.max(0, Number(value) || 0);
+  const rows = sh.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(productId)) {
+      sh.getRange(i + 1, 3).setValue(n);
+      return;
+    }
+  }
+  sh.appendRow([String(productId), '', n]);
+}
+
+function getDetailSheet_() {
+  const ss = getSpreadsheet_();
+  let sh = ss.getSheetByName('Pesanan Detail');
+  if (!sh) {
+    sh = ss.insertSheet('Pesanan Detail');
+    sh.appendRow(['No. Daftar', 'Waktu', 'Produk ID', 'Nama', 'Varian', 'Qty', 'Harga']);
+  }
+  return sh;
+}
+
+function computeReport_() {
+  const sh = getDetailSheet_();
+  const rows = sh.getDataRange().getValues();
+  const modals = readModals_();
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const day7 = new Date(now.getTime() - 7 * 86400000);
+  const day30 = new Date(now.getTime() - 30 * 86400000);
+  const keys = ['7hari', '30hari', 'bulanini', 'semua'];
+
+  const zero = function () {
+    return { revenue: 0, cost: 0, profit: 0, orders: 0, qty: 0, per: {} };
+  };
+  const periods = {};
+  const seenOrders = {};
+  keys.forEach(function (k) {
+    periods[k] = zero();
+    seenOrders[k] = {};
+  });
+
+  for (let i = 1; i < rows.length; i++) {
+    const id = rows[i][0];
+    const waktu = rows[i][1];
+    const pid = rows[i][2];
+    const name = rows[i][3];
+    const qty = Number(rows[i][5]) || 0;
+    const price = Number(rows[i][6]) || 0;
+    const t = new Date(waktu);
+    if (isNaN(t.getTime())) continue;
+
+    const key = pid != null && String(pid).trim() !== '' ? String(pid) : String(name || id);
+    const modal = key in modals ? modals[key] : 0;
+
+    const inPeriod = {
+      '7hari': t >= day7,
+      '30hari': t >= day30,
+      'bulanini': t >= startOfMonth,
+      'semua': true,
+    };
+
+    keys.forEach(function (k) {
+      if (!inPeriod[k]) return;
+      const P = periods[k];
+      P.revenue += price * qty;
+      P.cost += modal * qty;
+      P.qty += qty;
+      const oid = String(id);
+      if (!seenOrders[k][oid]) {
+        seenOrders[k][oid] = true;
+        P.orders++;
+      }
+      if (!P.per[key]) P.per[key] = { name: name || key, qty: 0, revenue: 0, cost: 0, profit: 0 };
+      const rec = P.per[key];
+      rec.qty += qty;
+      rec.revenue += price * qty;
+      rec.cost += modal * qty;
+    });
+  }
+
+  keys.forEach(function (k) {
+    const P = periods[k];
+    P.profit = P.revenue - P.cost;
+    Object.keys(P.per).forEach(function (id) {
+      P.per[id].profit = P.per[id].revenue - P.per[id].cost;
+    });
+  });
+
+  return periods;
+}
+
 function authorized_(data) {
   if (!TOKEN) return true;
   return !!data && data.token === TOKEN;
 }
 
-function doGet() {
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+  if (p.report) {
+    if (!authorized_({ token: p.token })) return json_({ ok: false, error: 'forbidden' });
+    return json_({ ok: true, periods: computeReport_(), modals: readModals_() });
+  }
   return json_({ ok: true, stocks: readStocks_(), featured: readFeatured_() });
 }
 
@@ -172,6 +293,15 @@ function doPost(e) {
     return json_({ ok: true, stocks: readStocks_(), featured: readFeatured_() });
   }
 
+  if (action === 'setModals') {
+    if (!authorized_(data)) return json_({ ok: false, error: 'forbidden' });
+    const modals = data.modals || {};
+    Object.keys(modals).forEach(function (id) {
+      writeModal_(id, modals[id]);
+    });
+    return json_({ ok: true, modals: readModals_() });
+  }
+
   if (action === 'order') {
     const sheet = getPesananSheet_();
     const items = Array.isArray(data.items) ? data.items : [];
@@ -195,8 +325,20 @@ function doPost(e) {
       Number(data.subtotal) || 0,
     ]);
 
+    const detail = getDetailSheet_();
     items.forEach(function (it) {
-      if (it.productId != null) decrementStock_(String(it.productId), Number(it.qty) || 0);
+      if (it.productId != null) {
+        detail.appendRow([
+          data.id || '',
+          data.createdAt || new Date(),
+          String(it.productId),
+          it.name || '',
+          it.variant || '',
+          Number(it.qty) || 0,
+          it.price != null ? Number(it.price) : '',
+        ]);
+        decrementStock_(String(it.productId), Number(it.qty) || 0);
+      }
     });
 
     return json_({ ok: true, stocks: readStocks_() });
