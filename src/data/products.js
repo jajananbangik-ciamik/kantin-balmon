@@ -11,21 +11,21 @@ export const categories = [
 export const products = [
   // ---- Jajanan Frozen ----
   { id: 'sosis-solo', name: 'Sosis Solo', category: 'frozen', price: 25000, priceNote: 'Isi 10', image: 'images/sosis-solo.jpeg' },
-  { id: 'dimsum-orange', name: 'Dimsum Orange', category: 'frozen', price: 25000, priceNote: 'Isi 10', image: 'images/dimsum-orange.jpg' },
-  { id: 'dimsum-mozarella', name: 'Dimsum Goreng Mozarella', category: 'frozen', price: 27000, priceNote: 'Isi 5', image: 'images/dimsum-mozarella.jpg' },
-  { id: 'wonton', name: 'Wonton', category: 'frozen', price: 16000, priceNote: '1 porsi + kuah sop & chili oil', image: 'images/wonton.jpg' },
-  { id: 'pizza', name: 'Pizza', category: 'frozen', price: 26000, image: 'images/pizza.jpg' },
-  { id: 'pancake-buah', name: 'Pancake Buah', category: 'frozen', price: 16000, priceNote: 'Ukuran kecil', image: 'images/pancake-buah.jpg' },
-  { id: 'es-serut-durian', name: 'Es Serut Durian', category: 'frozen', price: 18000, image: 'images/es-serut-durian.jpg' },
-  { id: 'durian-monthong', name: 'Durian Monthong', category: 'frozen', price: 66000, image: 'images/durian-monthong.jpg' },
+  { id: 'dimsum-orange', name: 'Dimsum Orange', category: 'frozen', price: 25000, priceNote: 'Isi 10', image: 'images/dimsum-orange.jpeg' },
+  { id: 'dimsum-mozarella', name: 'Dimsum Goreng Mozarella', category: 'frozen', price: 27000, priceNote: 'Isi 5', image: 'images/dimsum-mozarella.jpeg' },
+  { id: 'wonton', name: 'Wonton', category: 'frozen', price: 16000, priceNote: '1 porsi + kuah sop & chili oil', image: 'images/wonton.jpeg' },
+  { id: 'pizza', name: 'Pizza', category: 'frozen', price: 26000, image: 'images/pizza.jpeg' },
+  { id: 'pancake-buah', name: 'Pancake Buah', category: 'frozen', price: 16000, priceNote: 'Ukuran kecil', image: 'images/pancake-buah.jpeg' },
+  { id: 'es-serut-durian', name: 'Es Serut Durian', category: 'frozen', price: 18000, image: 'images/es-serut-durian.jpeg' },
+  { id: 'durian-monthong', name: 'Durian Monthong', category: 'frozen', price: 66000, image: 'images/durian-monthong.jpeg' },
 
   // ---- Olahan Ikan ----
   { id: 'pempek-grade-a', name: 'Pempek Ikan Grade A', category: 'olahan-ikan', price: 2500, priceNote: 'per satuan', image: 'images/pempek-grade-a.jpg' },
-  { id: 'pempek-grade-b', name: 'Pempek Ikan Grade B', category: 'olahan-ikan', price: 2000, priceNote: 'per satuan', image: 'images/pempek-grade-b.jpg' },
+  { id: 'pempek-grade-b', name: 'Pempek Ikan Grade B', category: 'olahan-ikan', price: 2000, priceNote: 'per satuan', image: 'images/pempek-grade-b.jpeg' },
   { id: 'siomay-tenggiri', name: 'Siomay Tenggiri', category: 'olahan-ikan', price: 4000, priceNote: 'per satuan', image: 'images/siomay-tenggiri.png' },
   { id: 'siomay-grade-b', name: 'Siomay Grade B', category: 'olahan-ikan', price: 2000, priceNote: 'per satuan', image: 'images/siomay-grade-b.png' },
-  { id: 'otak-otak', name: 'Otak-otak', category: 'olahan-ikan', price: 2000, priceNote: 'per satuan', image: 'images/otak-otak.png' },
-  { id: 'kerupuk', name: 'Kerupuk', category: 'olahan-ikan', price: 16000, priceNote: 'Kemasan besar', image: 'images/kerupuk.jpg' },
+  { id: 'otak-otak', name: 'Otak-otak', category: 'olahan-ikan', price: 2000, priceNote: 'per satuan', image: 'images/otak-otak.jpeg' },
+  { id: 'kerupuk', name: 'Kerupuk', category: 'olahan-ikan', price: 16000, priceNote: 'Kemasan besar', image: 'images/kerupuk.jpeg' },
 
   // ---- Lauk Pauk ----
   { id: 'rendang', name: 'Rendang', category: 'lauk-pauk', price: 47000, image: 'images/rendang.jpg' },
@@ -55,7 +55,7 @@ export const products = [
   { id: 'better', name: 'Better', category: 'snack', price: 2500, image: 'images/better.png' },
   { id: 'sari-gandum', name: 'Sari Gandum', category: 'snack', price: 2500, image: 'images/sari-gandum.jpg' },
   { id: 'brownies-crispy', name: 'Brownies Crispy', category: 'snack', price: 2000, image: 'images/brownies-crispy.jpg' },
-  { id: 'marie-regal', name: 'Marie Regal', category: 'snack', price: 1500 },
+  { id: 'marie-regal', name: 'Marie Regal', category: 'snack', price: 1500, image: 'images/marie-regal.jpg' },
 
   // ---- Aneka Cemilan ----
   { id: 'kripik-sanjay', name: 'Kripik Sanjay Ante', category: 'aneka-cemilan', price: 13000, image: 'images/kripik-sanjay.png' },
