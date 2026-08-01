@@ -57,7 +57,30 @@ export async function fetchStocks() {
     const res = await fetch(`${url}?action=stocks&_=${Date.now()}`)
     if (!res.ok) return { ok: false, reason: 'http-' + res.status }
     const data = await res.json()
-    if (data && data.ok && data.stocks) return { ok: true, stocks: data.stocks }
+    if (data && data.ok) {
+      return { ok: true, stocks: data.stocks || {}, featured: data.featured || [] }
+    }
+    return { ok: false, reason: 'bad-response' }
+  } catch (err) {
+    return { ok: false, reason: err.message }
+  }
+}
+
+export async function setFeatured(ids) {
+  const url = getSheetsUrl()
+  if (!url) return { ok: false, reason: 'not-configured' }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'setFeatured', ids, token: getStockToken() }),
+    })
+    if (!res.ok) return { ok: false, reason: 'http-' + res.status }
+    const data = await res.json()
+    if (data && data.ok) {
+      return { ok: true, stocks: data.stocks || {}, featured: data.featured || [] }
+    }
+    if (data && data.error) return { ok: false, reason: data.error }
     return { ok: false, reason: 'bad-response' }
   } catch (err) {
     return { ok: false, reason: err.message }

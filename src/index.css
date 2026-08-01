@@ -765,6 +765,13 @@ a {
   color: #fff;
 }
 
+.feat-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 14px 0 4px;
+}
+
 .sheets-section {
   padding-bottom: 12px;
 }

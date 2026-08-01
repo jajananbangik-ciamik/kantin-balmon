@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
 import { categories, products } from '../data/products'
+import { useStock } from '../context/StockContext'
 import ProductCard from '../components/ProductCard'
 
-const featuredIds = [
+const DEFAULT_FEATURED = [
   'sosis-solo',
   'dimsum-orange',
   'dimsum-mozarella',
@@ -17,9 +18,11 @@ const featuredIds = [
   'ikan-marinasi',
 ]
 
-const featured = featuredIds.map((id) => products.find((p) => p.id === id)).filter(Boolean)
-
 export default function Home() {
+  const { featured } = useStock()
+  const ids = featured && featured.length ? featured : DEFAULT_FEATURED
+  const featuredList = ids.map((id) => products.find((p) => p.id === id)).filter(Boolean)
+
   return (
     <>
       <section className="hero">
@@ -45,7 +48,7 @@ export default function Home() {
       <section className="section">
         <h2 className="section-title">Menu Unggulan</h2>
         <div className="product-grid">
-          {featured.map((p) => (
+          {featuredList.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}
         </div>

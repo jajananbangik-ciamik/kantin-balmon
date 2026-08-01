@@ -103,13 +103,43 @@ function decrementStock_(productId, qty) {
   writeStock_(productId, Math.max(0, stocks[productId] - qty));
 }
 
+function getUnggulanSheet_() {
+  const ss = getSpreadsheet_();
+  let sh = ss.getSheetByName('Unggulan');
+  if (!sh) {
+    sh = ss.insertSheet('Unggulan');
+    sh.appendRow(['Produk ID']);
+  }
+  return sh;
+}
+
+function readFeatured_() {
+  const sh = getUnggulanSheet_();
+  const rows = sh.getDataRange().getValues();
+  const ids = [];
+  for (let i = 1; i < rows.length; i++) {
+    const id = rows[i][0];
+    if (id != null && String(id).trim() !== '') ids.push(String(id));
+  }
+  return ids;
+}
+
+function writeFeatured_(ids) {
+  const sh = getUnggulanSheet_();
+  sh.clearContents();
+  sh.appendRow(['Produk ID']);
+  (Array.isArray(ids) ? ids : []).forEach(function (id) {
+    if (id != null && String(id).trim() !== '') sh.appendRow([String(id)]);
+  });
+}
+
 function authorized_(data) {
   if (!TOKEN) return true;
   return !!data && data.token === TOKEN;
 }
 
 function doGet() {
-  return json_({ ok: true, stocks: readStocks_() });
+  return json_({ ok: true, stocks: readStocks_(), featured: readFeatured_() });
 }
 
 function doPost(e) {
@@ -126,14 +156,20 @@ function doPost(e) {
     if (!authorized_(data)) return json_({ ok: false, error: 'forbidden' });
     if (data.productId == null) return json_({ ok: false, error: 'productId' });
     writeStock_(data.productId, data.value);
-    return json_({ ok: true, stocks: readStocks_() });
+    return json_({ ok: true, stocks: readStocks_(), featured: readFeatured_() });
   }
 
   if (action === 'removeStock') {
     if (!authorized_(data)) return json_({ ok: false, error: 'forbidden' });
     if (data.productId == null) return json_({ ok: false, error: 'productId' });
     deleteStock_(data.productId);
-    return json_({ ok: true, stocks: readStocks_() });
+    return json_({ ok: true, stocks: readStocks_(), featured: readFeatured_() });
+  }
+
+  if (action === 'setFeatured') {
+    if (!authorized_(data)) return json_({ ok: false, error: 'forbidden' });
+    writeFeatured_(data.ids);
+    return json_({ ok: true, stocks: readStocks_(), featured: readFeatured_() });
   }
 
   if (action === 'order') {

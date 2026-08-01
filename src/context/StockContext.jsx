@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { getSheetsUrl, fetchStocks, sendStockAction } from '../utils/sheets'
+import { getSheetsUrl, fetchStocks, sendStockAction, setFeatured as postFeatured } from '../utils/sheets'
 
 const StockContext = createContext(null)
 const LOCAL_KEY = 'kantin-balmon-stock'
@@ -16,6 +16,7 @@ export function StockProvider({ children }) {
   // central = null artinya mode lokal (URL Google Sheets belum diatur)
   const [central, setCentral] = useState(null)
   const [localStocks, setLocalStocks] = useState(loadLocal)
+  const [featured, setFeatured] = useState([])
   const [loaded, setLoaded] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const inFlightRef = useRef(false)
@@ -38,8 +39,10 @@ export function StockProvider({ children }) {
       const res = await fetchStocks()
       if (res.ok) {
         setCentral(res.stocks)
+        setFeatured(res.featured || [])
       } else if (!hasLoadedRef.current) {
         setCentral({})
+        setFeatured([])
       }
       hasLoadedRef.current = true
       setLoaded(true)
@@ -122,9 +125,35 @@ export function StockProvider({ children }) {
     [isCentral],
   )
 
+  const updateFeatured = useCallback(
+    async (ids) => {
+      setFeatured(ids)
+      const res = await postFeatured(ids)
+      if (!res.ok) {
+        await refresh()
+        return res
+      }
+      if (res.stocks) setCentral(res.stocks)
+      if (res.featured) setFeatured(res.featured)
+      return res
+    },
+    [refresh],
+  )
+
   const value = useMemo(
-    () => ({ getStock, setStock, removeStock, decrementStock, refresh, syncing, loaded, isCentral }),
-    [getStock, setStock, removeStock, decrementStock, refresh, syncing, loaded, isCentral],
+    () => ({
+      getStock,
+      setStock,
+      removeStock,
+      decrementStock,
+      refresh,
+      syncing,
+      loaded,
+      isCentral,
+      featured,
+      updateFeatured,
+    }),
+    [getStock, setStock, removeStock, decrementStock, refresh, syncing, loaded, isCentral, featured, updateFeatured],
   )
 
   return <StockContext.Provider value={value}>{children}</StockContext.Provider>

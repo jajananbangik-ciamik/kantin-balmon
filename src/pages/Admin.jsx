@@ -7,13 +7,17 @@ import ProductImage from '../components/ProductImage'
 
 export default function Admin() {
   const { uploads, setUpload, removeUpload } = useUploads()
-  const { getStock, setStock, removeStock, refresh, syncing, isCentral } = useStock()
+  const { getStock, setStock, removeStock, refresh, syncing, isCentral, featured, updateFeatured, loaded } =
+    useStock()
   const [tab, setTab] = useState('stok')
   const [busyId, setBusyId] = useState(null)
   const [stockInputs, setStockInputs] = useState({})
   const [sheetsUrl, setSheetsUrlState] = useState(getSheetsUrl())
   const [stockToken, setStockTokenState] = useState(getStockToken())
   const [sheetsSaved, setSheetsSaved] = useState(false)
+  const [featDraft, setFeatDraft] = useState(null)
+  const [featSaving, setFeatSaving] = useState(false)
+  const [featSaved, setFeatSaved] = useState(false)
   const fileRef = useRef(null)
 
   const onPick = async (product, file) => {
@@ -52,6 +56,41 @@ export default function Admin() {
     setStockToken(stockToken.trim())
     setSheetsSaved(true)
     setTimeout(() => setSheetsSaved(false), 2000)
+  }
+
+  const featList = featDraft ?? featured
+
+  const toggleFeat = (id) => {
+    setFeatDraft((prev) => {
+      const cur = prev ?? featured
+      return cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
+    })
+  }
+
+  const moveFeat = (id, dir) => {
+    setFeatDraft((prev) => {
+      const cur = prev ?? featured
+      const i = cur.indexOf(id)
+      const j = i + dir
+      if (i < 0 || j < 0 || j >= cur.length) return cur
+      const n = [...cur]
+      ;[n[i], n[j]] = [n[j], n[i]]
+      return n
+    })
+  }
+
+  const saveFeat = async () => {
+    if (featDraft === null) return
+    setFeatSaving(true)
+    const res = await updateFeatured(featDraft)
+    if (!res.ok) {
+      alert('Gagal menyimpan menu unggulan: ' + res.reason)
+    } else {
+      setFeatSaved(true)
+      setTimeout(() => setFeatSaved(false), 2000)
+    }
+    setFeatSaving(false)
+    setFeatDraft(null)
   }
 
   return (
@@ -106,9 +145,90 @@ export default function Admin() {
         >
           Upload Foto
         </button>
+        <button
+          className={`admin-tab${tab === 'unggulan' ? ' active' : ''}`}
+          onClick={() => setTab('unggulan')}
+        >
+          Menu Unggulan
+        </button>
       </div>
 
-      {tab === 'stok' ? (
+      {tab === 'unggulan' ? (
+        <div>
+          <p className="hint">
+            {isCentral
+              ? 'Centang produk yang tampil di "Menu Unggulan" beranda untuk semua pengunjung. Atur urutan dengan panah, lalu Simpan.'
+              : 'Mode lokal: perubahan hanya tampil di perangkat ini. Hubungkan Google Sheets agar tampil untuk semua pengunjung.'}
+          </p>
+          {!loaded && <p className="hint">Memuat data...</p>}
+          <div className="feat-actions">
+            <button className="btn btn-primary" onClick={saveFeat} disabled={featDraft === null || featSaving}>
+              {featSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
+            </button>
+            {featDraft !== null && (
+              <button className="btn btn-outline" onClick={() => setFeatDraft(null)}>
+                Batal
+              </button>
+            )}
+            {featSaved && <span className="hint ok">Tersimpan.</span>}
+          </div>
+          <section className="section">
+            <h2 className="section-title">Produk Unggulan (urutan tampil)</h2>
+            <div className="stock-list">
+              {featList.length === 0 && <p className="hint">Belum ada produk unggulan.</p>}
+              {featList.map((id, idx) => {
+                const p = products.find((x) => x.id === id)
+                if (!p) return null
+                return (
+                  <div key={id} className="stock-row">
+                    <div className="stock-info">
+                      <p className="stock-name">{p.name}</p>
+                      <p className="stock-status">Urutan {idx + 1}</p>
+                    </div>
+                    <div className="stock-actions">
+                      <button className="btn btn-outline" onClick={() => moveFeat(id, -1)} disabled={idx === 0}>
+                        ↑
+                      </button>
+                      <button
+                        className="btn btn-outline"
+                        onClick={() => moveFeat(id, 1)}
+                        disabled={idx === featList.length - 1}
+                      >
+                        ↓
+                      </button>
+                      <button className="btn btn-outline" onClick={() => toggleFeat(id)}>
+                        Hapus
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+          <section className="section">
+            <h2 className="section-title">Produk Lainnya</h2>
+            <div className="stock-list">
+              {products
+                .filter((p) => !featList.includes(p.id))
+                .map((p) => (
+                  <div key={p.id} className="stock-row">
+                    <div className="stock-info">
+                      <p className="stock-name">{p.name}</p>
+                      <p className="stock-status">
+                        {categories.find((c) => c.slug === p.category)?.name}
+                      </p>
+                    </div>
+                    <div className="stock-actions">
+                      <button className="btn btn-primary" onClick={() => toggleFeat(p.id)}>
+                        Tambah
+                      </button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </section>
+        </div>
+      ) : tab === 'stok' ? (
         <>
           <button className="btn btn-outline" onClick={() => refresh()} disabled={syncing}>
             {syncing ? 'Memuat ulang...' : 'Muat Ulang Stok'}
