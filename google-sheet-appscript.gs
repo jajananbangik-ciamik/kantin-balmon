@@ -225,6 +225,62 @@ function writeProducts_(rows) {
   });
 }
 
+function baseCategories_() {
+  return [
+    { slug: 'frozen', name: 'Jajanan Frozen' },
+    { slug: 'olahan-ikan', name: 'Olahan Ikan' },
+    { slug: 'lauk-pauk', name: 'Lauk Pauk' },
+    { slug: 'ikan-seafood', name: 'Ikan & Seafood' },
+    { slug: 'snack', name: 'Snack' },
+    { slug: 'aneka-cemilan', name: 'Aneka Cemilan' },
+    { slug: 'kebutuhan-rumah', name: 'Kebutuhan Rumah' },
+  ];
+}
+
+function getKategoriSheet_() {
+  const ss = getSpreadsheet_();
+  let sh = ss.getSheetByName('Kategori');
+  if (!sh) {
+    sh = ss.insertSheet('Kategori');
+    sh.appendRow(['Slug', 'Nama', 'Urutan', 'Aktif']);
+    baseCategories_().forEach(function (c, i) {
+      sh.appendRow([c.slug, c.name, i + 1, '1']);
+    });
+  }
+  return sh;
+}
+
+function readCategories_() {
+  const sh = getKategoriSheet_();
+  const rows = sh.getDataRange().getValues();
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const slug = rows[i][0];
+    if (slug == null || String(slug).trim() === '') continue;
+    out.push({
+      slug: String(slug),
+      name: String(rows[i][1] || ''),
+      order: rows[i][2] !== '' && rows[i][2] != null ? Number(rows[i][2]) : null,
+      active: String(rows[i][3]) === '0' ? false : true,
+    });
+  }
+  return out;
+}
+
+function writeCategories_(rows) {
+  const sh = getKategoriSheet_();
+  sh.clearContents();
+  sh.appendRow(['Slug', 'Nama', 'Urutan', 'Aktif']);
+  (Array.isArray(rows) ? rows : []).forEach(function (r) {
+    sh.appendRow([
+      String(r.slug || ''),
+      r.name || '',
+      r.order != null && r.order !== '' ? Number(r.order) : '',
+      r.active === false ? '0' : '1',
+    ]);
+  });
+}
+
 function computeReport_() {
   const sh = getDetailSheet_();
   const rows = sh.getDataRange().getValues();
@@ -311,6 +367,7 @@ function doGet(e) {
     stocks: readStocks_(),
     featured: readFeatured_(),
     products: readProducts_(),
+    categories: readCategories_(),
   });
 }
 
@@ -357,6 +414,12 @@ function doPost(e) {
     if (!authorized_(data)) return json_({ ok: false, error: 'forbidden' });
     writeProducts_(data.products);
     return json_({ ok: true, products: readProducts_() });
+  }
+
+  if (action === 'setCategories') {
+    if (!authorized_(data)) return json_({ ok: false, error: 'forbidden' });
+    writeCategories_(data.categories);
+    return json_({ ok: true, categories: readCategories_() });
   }
 
   if (action === 'order') {

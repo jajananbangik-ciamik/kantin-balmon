@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { products as baseProducts, formatRupiah } from '../data/products'
+import { products as baseProducts, categories as baseCategories, formatRupiah } from '../data/products'
 import { useUploads, resizeImageFile } from '../context/UploadsContext'
 import { useStock } from '../context/StockContext'
 import { useCatalog } from '../context/CatalogContext'
@@ -20,7 +20,9 @@ export default function Admin() {
   const {
     products,
     categories,
+    catEdits,
     saveCatalog,
+    saveCategories,
     loaded: catLoaded,
     syncing: catSyncing,
   } = useCatalog()
@@ -45,7 +47,37 @@ export default function Admin() {
   const [menuSearch, setMenuSearch] = useState('')
   const [menuSaving, setMenuSaving] = useState(false)
   const [menuSaved, setMenuSaved] = useState(false)
+  const [catDraft, setCatDraft] = useState(null)
+  const [catUiLoaded, setCatUiLoaded] = useState(false)
+  const [catUiSaving, setCatUiSaving] = useState(false)
+  const [catUiSaved, setCatUiSaved] = useState(false)
   const fileRef = useRef(null)
+
+  useEffect(() => {
+    if (tab === 'menu' && !catUiLoaded) {
+      const seen = new Set()
+      const rows = []
+      categories.forEach((c) => {
+        rows.push({ slug: c.slug, name: c.name, active: true })
+        seen.add(c.slug)
+      })
+      catEdits
+        .filter((c) => c.active === false)
+        .forEach((c) => {
+          if (seen.has(c.slug)) return
+          rows.push({ slug: c.slug, name: c.name, active: false })
+          seen.add(c.slug)
+        })
+      baseCategories.forEach((c) => {
+        if (seen.has(c.slug)) return
+        rows.push({ slug: c.slug, name: c.name, active: false })
+        seen.add(c.slug)
+      })
+      setCatDraft(rows)
+      setCatUiLoaded(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, catLoaded, categories, catEdits])
 
   useEffect(() => {
     if (tab === 'menu' && !menuLoaded && products.length) {
@@ -226,6 +258,58 @@ export default function Admin() {
     setMenuSaving(false)
   }
 
+  const updateCatRow = (slug, field, value) => {
+    setCatDraft((prev) => prev.map((r) => (r.slug === slug ? { ...r, [field]: value } : r)))
+  }
+
+  const moveCat = (index, dir) => {
+    setCatDraft((prev) => {
+      const next = prev.slice()
+      const target = index + dir
+      if (target < 0 || target >= next.length) return prev
+      const tmp = next[index]
+      next[index] = next[target]
+      next[target] = tmp
+      return next
+    })
+  }
+
+  const removeCat = (slug) => {
+    setCatDraft((prev) => prev.filter((r) => r.slug !== slug))
+  }
+
+  const addCat = () => {
+    setCatDraft((prev) => [
+      ...prev,
+      { slug: 'kategori-' + Date.now().toString().slice(-6), name: 'Kategori Baru', active: true },
+    ])
+  }
+
+  const saveCats = async () => {
+    if (!catDraft) return
+    const slugs = catDraft.map((c) => c.slug.trim()).filter(Boolean)
+    const dupes = slugs.filter((s, i) => slugs.indexOf(s) !== i)
+    if (dupes.length) {
+      alert('Slug kategori tidak boleh sama: ' + dupes.join(', '))
+      return
+    }
+    if (catDraft.some((c) => !c.slug.trim())) {
+      alert('Semua kategori harus punya slug.')
+      return
+    }
+    setCatUiSaving(true)
+    const res = await saveCategories(catDraft)
+    if (!res.ok) {
+      alert('Gagal menyimpan kategori: ' + res.reason)
+    } else {
+      setCatUiSaved(true)
+      setTimeout(() => setCatUiSaved(false), 2000)
+      setCatUiLoaded(false)
+      setCatDraft(null)
+    }
+    setCatUiSaving(false)
+  }
+
   return (
     <div className="page">
       <div className="page-head">
@@ -300,6 +384,86 @@ export default function Admin() {
 
       {tab === 'menu' ? (
         <div>
+          <div className="menu-cats">
+            <h3 className="menu-subtitle">Kelola Kategori</h3>
+            <p className="hint">
+              Tambah, ubah nama, urutkan, atau sembunyikan kategori. Produk yang memakai kategori
+              tersebut ikut berpindah otomatis.
+            </p>
+            {!catUiLoaded && <p className="hint">Memuat data...</p>}
+            <div className="feat-actions">
+              <button className="btn btn-primary" onClick={saveCats} disabled={!catDraft || catUiSaving}>
+                {catUiSaving ? 'Menyimpan...' : 'Simpan Kategori'}
+              </button>
+              <button className="btn btn-outline" onClick={addCat}>
+                + Tambah Kategori
+              </button>
+              {catUiSaved && <span className="hint ok">Tersimpan.</span>}
+            </div>
+            {!catDraft ? (
+              <p className="hint">Menyiapkan kategori...</p>
+            ) : (
+              <div className="stock-list">
+                {catDraft.map((c, i) => (
+                  <div key={c.slug} className={`stock-row cat-row${c.active ? '' : ' off'}`}>
+                    <div className="stock-info menu-info">
+                      <input
+                        className="menu-input"
+                        value={c.name}
+                        onChange={(e) => updateCatRow(c.slug, 'name', e.target.value)}
+                      />
+                      {baseCategories.some((b) => b.slug === c.slug) ? (
+                        <input
+                          className="menu-input small slug"
+                          value={c.slug}
+                          readOnly
+                          title="Slug kategori bawaan tidak bisa diubah"
+                        />
+                      ) : (
+                        <input
+                          className="menu-input small slug"
+                          value={c.slug}
+                          placeholder="Slug (url, contoh: camilan-baru)"
+                          onChange={(e) => updateCatRow(c.slug, 'slug', e.target.value)}
+                        />
+                      )}
+                    </div>
+                    <div className="stock-actions">
+                      <button
+                        className="btn btn-outline"
+                        onClick={() => moveCat(i, -1)}
+                        disabled={i === 0}
+                        aria-label="Naik"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        className="btn btn-outline"
+                        onClick={() => moveCat(i, 1)}
+                        disabled={i === catDraft.length - 1}
+                        aria-label="Turun"
+                      >
+                        ↓
+                      </button>
+                      <label className="menu-toggle">
+                        <input
+                          type="checkbox"
+                          checked={c.active}
+                          onChange={(e) => updateCatRow(c.slug, 'active', e.target.checked)}
+                        />
+                        Tampil
+                      </label>
+                      <button className="btn btn-outline" onClick={() => removeCat(c.slug)}>
+                        Hapus
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <hr className="menu-divider" />
+          <h3 className="menu-subtitle">Daftar Produk</h3>
           <p className="hint">
             {isCentral
               ? 'Ubah nama, harga, kategori, atau sembunyikan produk. Perubahan tersimpan terpusat dan langsung tampil untuk semua pengunjung.'
