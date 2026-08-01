@@ -171,7 +171,12 @@ export default function Admin() {
           })}
         </>
       ) : (
-        categories.map((cat) => {
+        <div>
+          <p className="hint">
+            Upload di sini hanya tersimpan di perangkat ini. Foto permanen: taruh foto di folder
+            new-images di komputer, lalu jalankan update-images dan deploy.
+          </p>
+          {categories.map((cat) => {
           const items = products.filter((p) => p.category === cat.slug)
           if (!items.length) return null
           return (
@@ -209,7 +214,8 @@ export default function Admin() {
               </div>
             </section>
           )
-        })
+        })}
+        </div>
       )}
     </div>
   )
