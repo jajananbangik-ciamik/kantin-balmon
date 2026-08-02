@@ -1,11 +1,14 @@
 export const SHEETS_URL_KEY = 'kantin-balmon-sheets-url'
 export const STOCK_TOKEN_KEY = 'kantin-balmon-stock-token'
 
+export const DEFAULT_SHEETS_URL =
+  'https://script.google.com/macros/s/AKfycbygKUxBaa3Jk1IRNArPnWGtoICSU20JsgZxLEYrpdQaXMCVcOfETMjcunqzM4-Attwuxw/exec'
+
 export const getSheetsUrl = () => {
   try {
-    return localStorage.getItem(SHEETS_URL_KEY) || ''
+    return localStorage.getItem(SHEETS_URL_KEY) || DEFAULT_SHEETS_URL
   } catch {
-    return ''
+    return DEFAULT_SHEETS_URL
   }
 }
 
