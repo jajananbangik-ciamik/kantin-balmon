@@ -3,7 +3,7 @@ import { products as baseProducts, categories as baseCategories, formatRupiah } 
 import { useUploads, resizeImageFile } from '../context/UploadsContext'
 import { useStock } from '../context/StockContext'
 import { useCatalog } from '../context/CatalogContext'
-import { getSheetsUrl, setSheetsUrl, getStockToken, setStockToken, fetchReport, saveModals } from '../utils/sheets'
+import { getSheetsUrl, setSheetsUrl, getStockToken, setStockToken, fetchReport, saveModals, verifyAdmin } from '../utils/sheets'
 import ProductImage from '../components/ProductImage'
 
 const PERIOD_LABELS = {
@@ -14,7 +14,6 @@ const PERIOD_LABELS = {
 }
 
 const ADMIN_OK_KEY = 'kantin-balmon-admin-ok'
-const ADMIN_PASSWORD = 'kantinbalmon'
 
 const checkAuthed = () => {
   try {
@@ -40,6 +39,7 @@ export default function Admin() {
   const [authed, setAuthed] = useState(checkAuthed)
   const [passInput, setPassInput] = useState('')
   const [passError, setPassError] = useState(false)
+  const [loggingIn, setLoggingIn] = useState(false)
   const [tab, setTab] = useState('stok')
   const [busyId, setBusyId] = useState(null)
   const [stockInputs, setStockInputs] = useState({})
@@ -324,11 +324,13 @@ export default function Admin() {
     setCatUiSaving(false)
   }
 
-  const login = (e) => {
+  const login = async (e) => {
     e.preventDefault()
-    const token = getStockToken()
-    const ok = passInput.trim() === ADMIN_PASSWORD || (!!token && passInput.trim() === token.trim())
-    if (ok) {
+    setPassError(false)
+    setLoggingIn(true)
+    const res = await verifyAdmin(passInput.trim())
+    setLoggingIn(false)
+    if (res.ok) {
       try {
         sessionStorage.setItem(ADMIN_OK_KEY, '1')
       } catch {
@@ -354,8 +356,8 @@ export default function Admin() {
               placeholder="Password admin"
               autoFocus
             />
-            <button className="btn btn-primary" type="submit">
-              Masuk
+            <button className="btn btn-primary" type="submit" disabled={loggingIn}>
+              {loggingIn ? 'Memeriksa...' : 'Masuk'}
             </button>
           </form>
           {passError && <p className="hint err">Password salah.</p>}

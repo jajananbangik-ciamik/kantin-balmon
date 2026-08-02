@@ -37,6 +37,25 @@ export const setStockToken = (token) => {
   }
 }
 
+export async function verifyAdmin(password) {
+  const url = getSheetsUrl()
+  if (!url) return { ok: false, reason: 'not-configured' }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'verifyAdmin', token: password }),
+    })
+    if (!res.ok) return { ok: false, reason: 'http-' + res.status }
+    const data = await res.json()
+    if (data && data.ok) return { ok: true }
+    if (data && data.error) return { ok: false, reason: data.error }
+    return { ok: false, reason: 'bad-response' }
+  } catch (err) {
+    return { ok: false, reason: err.message }
+  }
+}
+
 export async function sendOrderToSheets(order) {
   const url = getSheetsUrl()
   if (!url) return { ok: false, reason: 'not-configured' }

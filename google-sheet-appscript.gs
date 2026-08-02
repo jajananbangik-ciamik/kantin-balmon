@@ -7,6 +7,7 @@
 //    tempel SEMUA kode di bawah ini.
 // 3. (Opsional) Ganti TOKEN di bawah dengan kata sandi sendiri.
 //    Toko pakai token itu untuk mengubah stok (aman dari orang luar).
+//    Token yang sama juga dipakai sebagai PASSWORD ADMIN untuk masuk ke /admin.
 // 4. Deploy -> New deployment
 //    - Choose type: Web app
 //    - Execute as : Me
@@ -353,7 +354,11 @@ function computeReport_() {
 
 function authorized_(data) {
   if (!TOKEN) return true;
-  return !!data && data.token === TOKEN;
+  return !!data && String(data.token || '').trim() === String(TOKEN).trim();
+}
+
+function verifyAdmin_(password) {
+  return authorized_({ token: password });
 }
 
 function doGet(e) {
@@ -462,6 +467,11 @@ function doPost(e) {
     });
 
     return json_({ ok: true, stocks: readStocks_() });
+  }
+
+  if (action === 'verifyAdmin') {
+    if (!verifyAdmin_(data.token)) return json_({ ok: false, error: 'forbidden' });
+    return json_({ ok: true });
   }
 
   return json_({ ok: false, error: 'unknown-action' });
