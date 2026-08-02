@@ -13,6 +13,17 @@ const PERIOD_LABELS = {
   'semua': 'Semua Waktu',
 }
 
+const ADMIN_OK_KEY = 'kantin-balmon-admin-ok'
+const ADMIN_PASSWORD = 'kantinbalmon'
+
+const checkAuthed = () => {
+  try {
+    return sessionStorage.getItem(ADMIN_OK_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 export default function Admin() {
   const { uploads, setUpload, removeUpload } = useUploads()
   const { getStock, setStock, removeStock, refresh, syncing, isCentral, featured, updateFeatured, loaded } =
@@ -26,6 +37,9 @@ export default function Admin() {
     loaded: catLoaded,
     syncing: catSyncing,
   } = useCatalog()
+  const [authed, setAuthed] = useState(checkAuthed)
+  const [passInput, setPassInput] = useState('')
+  const [passError, setPassError] = useState(false)
   const [tab, setTab] = useState('stok')
   const [busyId, setBusyId] = useState(null)
   const [stockInputs, setStockInputs] = useState({})
@@ -308,6 +322,46 @@ export default function Admin() {
       setCatDraft(null)
     }
     setCatUiSaving(false)
+  }
+
+  const login = (e) => {
+    e.preventDefault()
+    const token = getStockToken()
+    const ok = passInput.trim() === ADMIN_PASSWORD || (!!token && passInput.trim() === token.trim())
+    if (ok) {
+      try {
+        sessionStorage.setItem(ADMIN_OK_KEY, '1')
+      } catch {
+        /* ignore */
+      }
+      setAuthed(true)
+    } else {
+      setPassError(true)
+    }
+  }
+
+  if (!authed) {
+    return (
+      <div className="page">
+        <div className="admin-login">
+          <h1 className="page-head-title">Kantin Balmon</h1>
+          <p className="hint">Masukkan password untuk mengelola toko.</p>
+          <form className="sheets-row" onSubmit={login}>
+            <input
+              type="password"
+              value={passInput}
+              onChange={(e) => setPassInput(e.target.value)}
+              placeholder="Password admin"
+              autoFocus
+            />
+            <button className="btn btn-primary" type="submit">
+              Masuk
+            </button>
+          </form>
+          {passError && <p className="hint err">Password salah.</p>}
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -848,6 +848,19 @@ a {
   font-weight: 600;
 }
 
+.hint.err {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.admin-login {
+  max-width: 420px;
+  margin: 24px auto;
+  padding: 20px;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 10px;
+}
+
 .sheets-section {
   padding-bottom: 12px;
 }
