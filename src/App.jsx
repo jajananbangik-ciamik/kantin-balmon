@@ -20,7 +20,7 @@ function LoadingGate({ children }) {
   const [forced, setForced] = useState(false)
 
   useEffect(() => {
-    const t = setTimeout(() => setForced(true), 5000)
+    const t = setTimeout(() => setForced(true), 30000)
     return () => clearTimeout(t)
   }, [])
 
