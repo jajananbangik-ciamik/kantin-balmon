@@ -12,6 +12,8 @@ const loadLocal = () => {
   }
 }
 
+const dedupe = (ids) => Array.from(new Set(ids))
+
 export function StockProvider({ children }) {
   // central = null artinya mode lokal (URL Google Sheets belum diatur)
   const [central, setCentral] = useState(null)
@@ -39,7 +41,7 @@ export function StockProvider({ children }) {
       const res = await fetchStocks()
       if (res.ok) {
         setCentral(res.stocks)
-        setFeatured(res.featured || [])
+        setFeatured(dedupe(res.featured || []))
       } else if (!hasLoadedRef.current) {
         setCentral({})
         setFeatured([])
@@ -127,14 +129,15 @@ export function StockProvider({ children }) {
 
   const updateFeatured = useCallback(
     async (ids) => {
-      setFeatured(ids)
-      const res = await postFeatured(ids)
+      const next = dedupe(ids)
+      setFeatured(next)
+      const res = await postFeatured(next)
       if (!res.ok) {
         await refresh()
         return res
       }
       if (res.stocks) setCentral(res.stocks)
-      if (res.featured) setFeatured(res.featured)
+      if (res.featured) setFeatured(dedupe(res.featured))
       return res
     },
     [refresh],

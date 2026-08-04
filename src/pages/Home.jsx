@@ -21,7 +21,7 @@ const DEFAULT_FEATURED = [
 export default function Home() {
   const { featured } = useStock()
   const { categories, products } = useCatalog()
-  const ids = featured && featured.length ? featured : DEFAULT_FEATURED
+  const ids = Array.from(new Set(featured && featured.length ? featured : DEFAULT_FEATURED))
   const featuredList = ids.map((id) => products.find((p) => p.id === id)).filter(Boolean)
 
   return (
