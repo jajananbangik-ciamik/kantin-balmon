@@ -43,6 +43,7 @@ export default function Admin() {
   const [tab, setTab] = useState('stok')
   const [busyId, setBusyId] = useState(null)
   const [stockInputs, setStockInputs] = useState({})
+  const [stockSaving, setStockSaving] = useState(false)
   const [sheetsUrl, setSheetsUrlState] = useState(getSheetsUrl())
   const [stockToken, setStockTokenState] = useState(getStockToken())
   const [sheetsSaved, setSheetsSaved] = useState(false)
@@ -56,16 +57,25 @@ export default function Admin() {
   const [reportError, setReportError] = useState('')
   const [modalDirty, setModalDirty] = useState(false)
   const [modalSaved, setModalSaved] = useState(false)
+  const [modalSaving, setModalSaving] = useState(false)
   const [menuDraft, setMenuDraft] = useState(null)
   const [menuLoaded, setMenuLoaded] = useState(false)
   const [menuSearch, setMenuSearch] = useState('')
   const [menuSaving, setMenuSaving] = useState(false)
   const [menuSaved, setMenuSaved] = useState(false)
+  const [menuDirty, setMenuDirty] = useState(false)
   const [catDraft, setCatDraft] = useState(null)
   const [catUiLoaded, setCatUiLoaded] = useState(false)
   const [catUiSaving, setCatUiSaving] = useState(false)
   const [catUiSaved, setCatUiSaved] = useState(false)
+  const [catDirty, setCatDirty] = useState(false)
+  const [catAutoWarning, setCatAutoWarning] = useState('')
   const fileRef = useRef(null)
+  const stockTimerRef = useRef(null)
+  const menuTimerRef = useRef(null)
+  const catTimerRef = useRef(null)
+  const featTimerRef = useRef(null)
+  const modalTimerRef = useRef(null)
 
   useEffect(() => {
     if (tab === 'menu' && !catUiLoaded) {
@@ -126,6 +136,119 @@ export default function Admin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
 
+  useEffect(() => {
+    if (stockTimerRef.current) clearTimeout(stockTimerRef.current)
+    const valid = Object.entries(stockInputs).filter(
+      ([, v]) => v !== '' && v != null && !Number.isNaN(Number(v)),
+    )
+    if (!valid.length) return
+    setStockSaving(true)
+    stockTimerRef.current = setTimeout(async () => {
+      for (const [id, v] of valid) {
+        const res = await setStock(id, Number(v))
+        if (res && !res.ok) alert('Gagal menyimpan stok: ' + res.reason)
+      }
+      setStockSaving(false)
+    }, 800)
+    return () => clearTimeout(stockTimerRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stockInputs])
+
+  useEffect(() => {
+    if (!menuDirty || !menuDraft) return
+    if (menuTimerRef.current) clearTimeout(menuTimerRef.current)
+    setMenuSaving(true)
+    menuTimerRef.current = setTimeout(async () => {
+      const res = await saveCatalog(menuDraft)
+      if (!res.ok) {
+        alert('Gagal menyimpan menu: ' + res.reason)
+        setMenuSaving(false)
+        return
+      }
+      setMenuSaved(true)
+      setMenuDirty(false)
+      setMenuSaving(false)
+      setTimeout(() => setMenuSaved(false), 2000)
+    }, 900)
+    return () => clearTimeout(menuTimerRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuDirty, menuDraft])
+
+  useEffect(() => {
+    if (!catDirty || !catDraft) return
+    if (catTimerRef.current) clearTimeout(catTimerRef.current)
+    setCatUiSaving(true)
+    catTimerRef.current = setTimeout(async () => {
+      const slugs = catDraft.map((c) => String(c.slug || '').trim()).filter(Boolean)
+      const dupes = slugs.filter((s, i) => slugs.indexOf(s) !== i)
+      if (dupes.length || catDraft.some((c) => !String(c.slug || '').trim())) {
+        setCatAutoWarning('Slug kategori tidak boleh kosong atau duplikat. Perbaiki agar tersimpan.')
+        setCatUiSaving(false)
+        return
+      }
+      setCatAutoWarning('')
+      const res = await saveCategories(catDraft)
+      if (!res.ok) {
+        alert('Gagal menyimpan kategori: ' + res.reason)
+        setCatUiSaving(false)
+        return
+      }
+      setCatUiSaved(true)
+      setCatDirty(false)
+      setCatUiSaving(false)
+      setTimeout(() => setCatUiSaved(false), 2000)
+    }, 1200)
+    return () => clearTimeout(catTimerRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catDirty, catDraft])
+
+  useEffect(() => {
+    if (featDraft === null) return
+    if (featTimerRef.current) clearTimeout(featTimerRef.current)
+    setFeatSaving(true)
+    featTimerRef.current = setTimeout(async () => {
+      const res = await updateFeatured(featDraft)
+      if (!res.ok) {
+        alert('Gagal menyimpan menu unggulan: ' + res.reason)
+        setFeatSaving(false)
+        return
+      }
+      setFeatSaved(true)
+      setFeatDraft(null)
+      setFeatSaving(false)
+      setTimeout(() => setFeatSaved(false), 2000)
+    }, 700)
+    return () => clearTimeout(featTimerRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [featDraft])
+
+  useEffect(() => {
+    if (!modalDirty) return
+    if (modalTimerRef.current) clearTimeout(modalTimerRef.current)
+    setModalSaving(true)
+    modalTimerRef.current = setTimeout(async () => {
+      const filtered = {}
+      Object.keys(modals).forEach((id) => {
+        const v = modals[id]
+        if (v !== '' && v != null && Number(v) > 0) filtered[id] = Number(v)
+      })
+      const res = await saveModals(filtered)
+      if (!res.ok) {
+        alert('Gagal menyimpan modal: ' + res.reason)
+        setModalDirty(false)
+        setModalSaving(false)
+        return
+      }
+      setModals((prev) => ({ ...prev, ...res.modals }))
+      setModalDirty(false)
+      setModalSaved(true)
+      setModalSaving(false)
+      setTimeout(() => setModalSaved(false), 2000)
+    }, 800)
+    return () => clearTimeout(modalTimerRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalDirty, modals])
+
   const loadReport = async () => {
     setReportLoading(true)
     setReportError('')
@@ -141,23 +264,6 @@ export default function Admin() {
       )
     }
     setReportLoading(false)
-  }
-
-  const saveModalBtn = async () => {
-    const filtered = {}
-    Object.keys(modals).forEach((id) => {
-      const v = modals[id]
-      if (v !== '' && v != null && Number(v) > 0) filtered[id] = Number(v)
-    })
-    const res = await saveModals(filtered)
-    if (!res.ok) {
-      alert('Gagal menyimpan modal: ' + res.reason)
-      return
-    }
-    setModals((prev) => ({ ...prev, ...res.modals }))
-    setModalDirty(false)
-    setModalSaved(true)
-    setTimeout(() => setModalSaved(false), 2000)
   }
 
   const onPick = async (product, file) => {
@@ -219,31 +325,20 @@ export default function Admin() {
     })
   }
 
-  const saveFeat = async () => {
-    if (featDraft === null) return
-    setFeatSaving(true)
-    const res = await updateFeatured(featDraft)
-    if (!res.ok) {
-      alert('Gagal menyimpan menu unggulan: ' + res.reason)
-    } else {
-      setFeatSaved(true)
-      setTimeout(() => setFeatSaved(false), 2000)
-    }
-    setFeatSaving(false)
-    setFeatDraft(null)
-  }
-
   const updateMenuRow = (id, field, value) => {
+    setMenuDirty(true)
     setMenuDraft((prev) =>
       prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)),
     )
   }
 
   const removeMenuRow = (id) => {
+    setMenuDirty(true)
     setMenuDraft((prev) => prev.filter((r) => r.id !== id))
   }
 
   const addMenuRow = () => {
+    setMenuDirty(true)
     setMenuDraft((prev) => [
       ...prev,
       {
@@ -257,26 +352,13 @@ export default function Admin() {
     ])
   }
 
-  const saveMenu = async () => {
-    if (!menuDraft) return
-    setMenuSaving(true)
-    const res = await saveCatalog(menuDraft)
-    if (!res.ok) {
-      alert('Gagal menyimpan menu: ' + res.reason)
-    } else {
-      setMenuSaved(true)
-      setTimeout(() => setMenuSaved(false), 2000)
-      setMenuLoaded(false)
-      setMenuDraft(null)
-    }
-    setMenuSaving(false)
-  }
-
   const updateCatRow = (slug, field, value) => {
+    setCatDirty(true)
     setCatDraft((prev) => prev.map((r) => (r.slug === slug ? { ...r, [field]: value } : r)))
   }
 
   const moveCat = (index, dir) => {
+    setCatDirty(true)
     setCatDraft((prev) => {
       const next = prev.slice()
       const target = index + dir
@@ -289,39 +371,16 @@ export default function Admin() {
   }
 
   const removeCat = (slug) => {
+    setCatDirty(true)
     setCatDraft((prev) => prev.filter((r) => r.slug !== slug))
   }
 
   const addCat = () => {
+    setCatDirty(true)
     setCatDraft((prev) => [
       ...prev,
       { slug: 'kategori-' + Date.now().toString().slice(-6), name: 'Kategori Baru', active: true },
     ])
-  }
-
-  const saveCats = async () => {
-    if (!catDraft) return
-    const slugs = catDraft.map((c) => c.slug.trim()).filter(Boolean)
-    const dupes = slugs.filter((s, i) => slugs.indexOf(s) !== i)
-    if (dupes.length) {
-      alert('Slug kategori tidak boleh sama: ' + dupes.join(', '))
-      return
-    }
-    if (catDraft.some((c) => !c.slug.trim())) {
-      alert('Semua kategori harus punya slug.')
-      return
-    }
-    setCatUiSaving(true)
-    const res = await saveCategories(catDraft)
-    if (!res.ok) {
-      alert('Gagal menyimpan kategori: ' + res.reason)
-    } else {
-      setCatUiSaved(true)
-      setTimeout(() => setCatUiSaved(false), 2000)
-      setCatUiLoaded(false)
-      setCatDraft(null)
-    }
-    setCatUiSaving(false)
   }
 
   const login = async (e) => {
@@ -444,16 +503,15 @@ export default function Admin() {
             <h3 className="menu-subtitle">Kelola Kategori</h3>
             <p className="hint">
               Tambah, ubah nama, urutkan, atau sembunyikan kategori. Produk yang memakai kategori
-              tersebut ikut berpindah otomatis.
+              tersebut ikut berpindah otomatis. Perubahan tersimpan otomatis.
             </p>
             {!catUiLoaded && <p className="hint">Memuat data...</p>}
             <div className="feat-actions">
-              <button className="btn btn-primary" onClick={saveCats} disabled={!catDraft || catUiSaving}>
-                {catUiSaving ? 'Menyimpan...' : 'Simpan Kategori'}
-              </button>
               <button className="btn btn-outline" onClick={addCat}>
                 + Tambah Kategori
               </button>
+              {catAutoWarning && <span className="hint warn">{catAutoWarning}</span>}
+              {catUiSaving && <span className="hint">Menyimpan...</span>}
               {catUiSaved && <span className="hint ok">Tersimpan.</span>}
             </div>
             {!catDraft ? (
@@ -522,17 +580,15 @@ export default function Admin() {
           <h3 className="menu-subtitle">Daftar Produk</h3>
           <p className="hint">
             {isCentral
-              ? 'Ubah nama, harga, kategori, atau sembunyikan produk. Perubahan tersimpan terpusat dan langsung tampil untuk semua pengunjung.'
+              ? 'Ubah nama, harga, kategori, atau sembunyikan produk. Perubahan otomatis tersimpan dan langsung tampil untuk semua pengunjung.'
               : 'Mode lokal: perubahan hanya tampil di perangkat ini. Hubungkan Google Sheets agar tampil untuk semua.'}
           </p>
           {!catLoaded && <p className="hint">Memuat data...</p>}
           <div className="feat-actions">
-            <button className="btn btn-primary" onClick={saveMenu} disabled={!menuDraft || menuSaving}>
-              {menuSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
-            </button>
             <button className="btn btn-outline" onClick={addMenuRow}>
               + Tambah Produk
             </button>
+            {menuSaving && <span className="hint">Menyimpan...</span>}
             {menuSaved && <span className="hint ok">Tersimpan.</span>}
           </div>
           <input
@@ -697,11 +753,10 @@ export default function Admin() {
             <h2 className="section-title">Atur Modal / HPP per Produk</h2>
             <p className="hint">
               Isi harga modal tiap produk agar keuntungan akurat (keuntungan = harga jual − modal).
+              Perubahan otomatis tersimpan.
             </p>
             <div className="feat-actions">
-              <button className="btn btn-primary" onClick={saveModalBtn} disabled={!modalDirty}>
-                Simpan Modal
-              </button>
+              {modalSaving && <span className="hint">Menyimpan...</span>}
               {modalSaved && <span className="hint ok">Tersimpan.</span>}
             </div>
             <div className="stock-list">
@@ -732,19 +787,12 @@ export default function Admin() {
         <div>
           <p className="hint">
             {isCentral
-              ? 'Centang produk yang tampil di "Menu Unggulan" beranda untuk semua pengunjung. Atur urutan dengan panah, lalu Simpan.'
+              ? 'Centang atau ubah urutan produk di "Menu Unggulan" beranda. Perubahan otomatis tersimpan untuk semua pengunjung.'
               : 'Mode lokal: perubahan hanya tampil di perangkat ini. Hubungkan Google Sheets agar tampil untuk semua pengunjung.'}
           </p>
           {!loaded && <p className="hint">Memuat data...</p>}
           <div className="feat-actions">
-            <button className="btn btn-primary" onClick={saveFeat} disabled={featDraft === null || featSaving}>
-              {featSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
-            </button>
-            {featDraft !== null && (
-              <button className="btn btn-outline" onClick={() => setFeatDraft(null)}>
-                Batal
-              </button>
-            )}
+            {featSaving && <span className="hint">Menyimpan...</span>}
             {featSaved && <span className="hint ok">Tersimpan.</span>}
           </div>
           <section className="section">
@@ -808,6 +856,11 @@ export default function Admin() {
           <button className="btn btn-outline" onClick={() => refresh()} disabled={syncing}>
             {syncing ? 'Memuat ulang...' : 'Muat Ulang Stok'}
           </button>
+          <p className="hint">
+            Ketik jumlah stok lalu berhenti sejenak — tersimpan otomatis. Tombol cepat tetap bisa
+            dipakai.
+          </p>
+          {stockSaving && <p className="hint">Menyimpan stok...</p>}
           {categories.map((cat) => {
             const items = products.filter((p) => p.category === cat.slug)
             if (!items.length) return null
