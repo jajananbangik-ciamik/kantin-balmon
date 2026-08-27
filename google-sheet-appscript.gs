@@ -363,7 +363,7 @@ function verifyAdmin_(password) {
 
 function doGet(e) {
   const p = (e && e.parameter) || {};
-  if (p.report) {
+  if (p.action === 'report') {
     if (!authorized_({ token: p.token })) return json_({ ok: false, error: 'forbidden' });
     return json_({ ok: true, periods: computeReport_(), modals: readModals_() });
   }
