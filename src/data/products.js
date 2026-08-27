@@ -34,17 +34,6 @@ export const products = [
   { id: 'ayam-bakar', name: 'Ayam Bakar', category: 'lauk-pauk', price: 36000, image: 'images/ayam-bakar.png' },
 
   // ---- Ikan & Seafood ----
-  {
-    id: 'nila-bakar',
-    name: 'Nila Bakar',
-    category: 'ikan-seafood',
-    variants: [
-      { label: '1 Ikan', price: 18000 },
-      { label: '4 Ikan + Sambal Terasi', price: 60000 },
-    ],
-    image: 'images/ikan-bakar.jpg',
-  },
-  { id: 'mas-bakar', name: 'Mas Bakar', category: 'ikan-seafood', price: null },
   { id: 'lele-bakar', name: 'Lele Bakar', category: 'ikan-seafood', price: null },
   { id: 'cumi-asin', name: 'Cumi Asin', category: 'ikan-seafood', price: 35000, priceNote: '250 gr' },
   { id: 'ikan-marinasi', name: 'Ikan Marinasi', category: 'ikan-seafood', price: null, image: 'images/ikan-marinasi.jpg' },
@@ -60,16 +49,16 @@ export const products = [
   // ---- Aneka Cemilan ----
   { id: 'kripik-sanjay', name: 'Kripik Sanjay Ante', category: 'aneka-cemilan', price: 13000, image: 'images/kripik-sanjay.png' },
   { id: 'stik-bawang', name: 'Stik Bawang', category: 'aneka-cemilan', price: 15000, image: 'images/stik-bawang.jpeg' },
-  { id: 'marning', name: 'Marning', category: 'aneka-cemilan', price: 19000, image: 'images/marning.jpeg' },
+
   { id: 'rengginang', name: 'Rengginang', category: 'aneka-cemilan', price: 15000, image: 'images/rengginang.jpeg' },
   { id: 'bagelen', name: 'Bagelen', category: 'aneka-cemilan', price: 15000, image: 'images/bagelen.jpeg' },
   { id: 'kripik-usus', name: 'Kripik Usus', category: 'aneka-cemilan', price: 16000, image: 'images/kripik-usus.jpeg' },
-  { id: 'basreng', name: 'Basreng', category: 'aneka-cemilan', price: 16000, image: 'images/basreng.jpeg' },
+
   { id: 'tahu-walik', name: 'Tahu Walik', category: 'aneka-cemilan', price: 16000, image: 'images/tahu-walik.jpeg' },
   { id: 'kripik-nangka', name: 'Kripik Nangka', category: 'aneka-cemilan', price: 16000, image: 'images/kripik-nangka.jpeg' },
   { id: 'muli', name: 'Muli', category: 'aneka-cemilan', price: 26000, image: 'images/muli.jpeg' },
   { id: 'grubi', name: 'Grubi', category: 'aneka-cemilan', price: 16000, image: 'images/grubi.jpeg' },
-  { id: 'soes-coklat', name: 'Soes Coklat', category: 'aneka-cemilan', price: 39000, image: 'images/soes-coklat.jpeg' },
+
   { id: 'cemilan-26', name: 'Cemilan Spesial', category: 'aneka-cemilan', price: 26000, image: 'images/cemilan-26.jpg' },
   { id: 'cemilan-30', name: 'Cemilan Spesial Plus', category: 'aneka-cemilan', price: 30000 },
 
