@@ -4,6 +4,10 @@ import { getSheetsUrl, fetchStocks, saveProducts, saveCategories as saveCategori
 
 const CatalogContext = createContext(null)
 
+const CATEGORY_ORDER = {}
+baseCategories.forEach((c, i) => (CATEGORY_ORDER[c.slug] = i))
+const MAX_CAT_ORDER = Number.MAX_SAFE_INTEGER
+
 function mergeCatalog(base, edits) {
   const map = {}
   edits.forEach((e) => (map[e.id] = e))
@@ -35,7 +39,24 @@ function mergeCatalog(base, edits) {
       image: '',
     })
   })
-  return list
+
+  const seen = new Set()
+  const deduped = []
+  list.forEach((p) => {
+    const idKey = String(p.id || '')
+    const nameKey = String(p.name || '').trim().toLowerCase()
+    if (seen.has(idKey) || (nameKey && seen.has('n:' + nameKey))) return
+    seen.add(idKey)
+    if (nameKey) seen.add('n:' + nameKey)
+    deduped.push(p)
+  })
+
+  return deduped.sort((a, b) => {
+    const ao = CATEGORY_ORDER[a.category] ?? MAX_CAT_ORDER
+    const bo = CATEGORY_ORDER[b.category] ?? MAX_CAT_ORDER
+    if (ao !== bo) return ao - bo
+    return String(a.name || '').localeCompare(String(b.name || ''), 'id', { sensitivity: 'base' })
+  })
 }
 
 export function CatalogProvider({ children }) {
