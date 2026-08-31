@@ -137,7 +137,6 @@ export function StockProvider({ children }) {
         return res
       }
       if (res.stocks) setCentral(res.stocks)
-      if (res.featured) setFeatured(dedupe(res.featured))
       return res
     },
     [refresh],
