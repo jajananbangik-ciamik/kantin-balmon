@@ -951,6 +951,30 @@ a {
   padding: 7px 10px;
 }
 
+.feat-drag {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 15px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  background: #fff;
+  line-height: 1;
+}
+
+.feat-drag:active {
+  cursor: grabbing;
+}
+
+.stock-row.feat-dragging {
+  border-color: var(--orange);
+  box-shadow: var(--shadow);
+}
+
 /* ---------- Admin: menu jajanan ---------- */
 .menu-row {
   align-items: flex-start;

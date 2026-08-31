@@ -50,6 +50,7 @@ export default function Admin() {
   const [featDraft, setFeatDraft] = useState(null)
   const [featSaving, setFeatSaving] = useState(false)
   const [featSaved, setFeatSaved] = useState(false)
+  const [featDragId, setFeatDragId] = useState(null)
   const [report, setReport] = useState(null)
   const [modals, setModals] = useState({})
   const [period, setPeriod] = useState('7hari')
@@ -71,6 +72,7 @@ export default function Admin() {
   const [catDirty, setCatDirty] = useState(false)
   const [catAutoWarning, setCatAutoWarning] = useState('')
   const fileRef = useRef(null)
+  const featListRef = useRef(null)
   const stockTimerRef = useRef(null)
   const menuTimerRef = useRef(null)
   const catTimerRef = useRef(null)
@@ -313,17 +315,42 @@ export default function Admin() {
     })
   }
 
-  const moveFeat = (id, dir) => {
+  const onFeatDragStart = (e, id) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    setFeatDragId(id)
+  }
+
+  const onFeatDragMove = (e) => {
+    if (!featDragId) return
+    const container = featListRef.current
+    if (!container) return
+    const rows = Array.from(container.querySelectorAll('[data-feat-id]'))
+    if (!rows.length) return
+    let insertBefore = rows.length
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i].getBoundingClientRect()
+      if (e.clientY < r.top + r.height / 2) {
+        insertBefore = i
+        break
+      }
+    }
     setFeatDraft((prev) => {
       const cur = prev ?? featured
-      const i = cur.indexOf(id)
-      const j = i + dir
-      if (i < 0 || j < 0 || j >= cur.length) return cur
+      const from = cur.indexOf(featDragId)
+      if (from < 0) return cur
+      let to = insertBefore
+      if (to > from) to -= 1
+      if (to === from) return cur
       const n = [...cur]
-      ;[n[i], n[j]] = [n[j], n[i]]
+      const [moved] = n.splice(from, 1)
+      n.splice(to, 0, moved)
       return n
     })
   }
+
+  const onFeatDragEnd = () => setFeatDragId(null)
 
   const updateMenuRow = (id, field, value) => {
     setMenuDirty(true)
@@ -787,7 +814,7 @@ export default function Admin() {
         <div>
           <p className="hint">
             {isCentral
-              ? 'Centang atau ubah urutan produk di "Menu Unggulan" beranda. Perubahan otomatis tersimpan untuk semua pengunjung.'
+              ? 'Tahan & geser untuk mengubah urutan di "Menu Unggulan" beranda. Perubahan otomatis tersimpan untuk semua pengunjung.'
               : 'Mode lokal: perubahan hanya tampil di perangkat ini. Hubungkan Google Sheets agar tampil untuk semua pengunjung.'}
           </p>
           {!loaded && <p className="hint">Memuat data...</p>}
@@ -797,28 +824,32 @@ export default function Admin() {
           </div>
           <section className="section">
             <h2 className="section-title">Produk Unggulan (urutan tampil)</h2>
-            <div className="stock-list">
+            <div className="stock-list feat-list" ref={featListRef}>
               {featList.length === 0 && <p className="hint">Belum ada produk unggulan.</p>}
               {featList.map((id, idx) => {
                 const p = products.find((x) => x.id === id)
                 if (!p) return null
                 return (
-                  <div key={id} className="stock-row">
+                  <div
+                    key={id}
+                    data-feat-id={id}
+                    className={`stock-row${featDragId === id ? ' feat-dragging' : ''}`}
+                  >
                     <div className="stock-info">
                       <p className="stock-name">{p.name}</p>
                       <p className="stock-status">Urutan {idx + 1}</p>
                     </div>
                     <div className="stock-actions">
-                      <button className="btn btn-outline" onClick={() => moveFeat(id, -1)} disabled={idx === 0}>
-                        ↑
-                      </button>
-                      <button
-                        className="btn btn-outline"
-                        onClick={() => moveFeat(id, 1)}
-                        disabled={idx === featList.length - 1}
+                      <span
+                        className="feat-drag"
+                        title="Tahan & geser untuk mengubah urutan"
+                        onPointerDown={(e) => onFeatDragStart(e, id)}
+                        onPointerMove={onFeatDragMove}
+                        onPointerUp={onFeatDragEnd}
+                        onPointerCancel={onFeatDragEnd}
                       >
-                        ↓
-                      </button>
+                        ⋮⋮
+                      </span>
                       <button className="btn btn-outline" onClick={() => toggleFeat(id)}>
                         Hapus
                       </button>
