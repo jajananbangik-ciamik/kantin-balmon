@@ -12,7 +12,7 @@ const loadUploads = () => {
   }
 }
 
-export function resizeImageFile(file, maxSize = 480) {
+export function resizeImageFile(file, maxSize = 320) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file)
     const img = new Image()
@@ -25,7 +25,22 @@ export function resizeImageFile(file, maxSize = 480) {
       canvas.height = h
       canvas.getContext('2d').drawImage(img, 0, 0, w, h)
       URL.revokeObjectURL(url)
-      resolve(canvas.toDataURL('image/jpeg', 0.8))
+
+      let size = maxSize
+      let quality = 0.8
+      let dataUrl = canvas.toDataURL('image/jpeg', quality)
+      while (dataUrl.length > 44000 && size > 120) {
+        size = Math.floor(size * 0.8)
+        const s = Math.min(1, size / Math.max(w, h))
+        const nw = Math.max(1, Math.round(w * s))
+        const nh = Math.max(1, Math.round(h * s))
+        canvas.width = nw
+        canvas.height = nh
+        canvas.getContext('2d').drawImage(img, 0, 0, nw, nh)
+        quality = Math.max(0.4, quality - 0.15)
+        dataUrl = canvas.toDataURL('image/jpeg', quality)
+      }
+      resolve(dataUrl)
     }
     img.onerror = reject
     img.src = url

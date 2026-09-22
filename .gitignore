@@ -4,5 +4,7 @@ dist
 *.local
 npm-debug.log*
 ~$*
+.clasprc.json
+clasp.json
 
 Backup Gambar/
