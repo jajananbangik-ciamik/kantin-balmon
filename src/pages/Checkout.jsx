@@ -157,7 +157,7 @@ export default function Checkout() {
           </div>
 
           <div className="qris-box">
-            <img src="/qris.jpg" alt="QRIS Kantin Balmon" className="qris-img" />
+            <img src="./qris.jpg" alt="QRIS Kantin Balmon" className="qris-img" />
             <p className="qris-total">
               Total: <strong>{formatRupiah(order.subtotal)}</strong>
             </p>
