@@ -18,12 +18,12 @@ export default function Navbar({ onCartOpen }) {
             <small>Pertolongan Pertama Pada Kelaparan</small>
           </span>
         </Link>
-        <Link to="/masukan" className="btn cart-btn feedback-btn" onClick={() => setMenuOpen(false)}>
-          Beri Masukan
-        </Link>
         <button className="btn btn-primary cart-btn" onClick={onCartOpen}>
           Keranjang {itemCount > 0 && <span className="cart-badge">{itemCount}</span>}
         </button>
+        <Link to="/masukan" className="btn cart-btn feedback-btn" onClick={() => setMenuOpen(false)}>
+          Beri Masukan
+        </Link>
         <button
           className="nav-toggle"
           onClick={() => setMenuOpen((v) => !v)}

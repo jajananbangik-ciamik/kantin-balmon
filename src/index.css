@@ -150,13 +150,13 @@ a {
 }
 
 .feedback-btn {
-  margin-left: auto;
   background: #fff;
   border: 1.5px solid var(--orange);
   color: var(--orange-dark);
 }
 
 .cart-btn {
+  margin-left: auto;
   position: relative;
 }
 
