@@ -211,6 +211,17 @@ a {
   color: #fff;
 }
 
+.nav-links a.nav-feedback {
+  margin-left: 4px;
+  border: 1.5px solid var(--orange);
+  color: var(--orange-dark);
+}
+
+.nav-links a.nav-feedback:hover {
+  background: var(--orange);
+  color: #fff;
+}
+
 /* ---------- Hero ---------- */
 .hero {
   text-align: center;
@@ -559,10 +570,49 @@ a {
 }
 
 /* ---------- Checkout ---------- */
+.masukan-form {
+  display: grid;
+  gap: 12px;
+  max-width: 560px;
+  margin-bottom: 22px;
+}
+
 .checkout-form {
   display: grid;
   gap: 12px;
   margin-bottom: 22px;
+}
+
+.masukan-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.masukan-form small {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.masukan-form input,
+.masukan-form textarea,
+.masukan-form select {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-family: inherit;
+  background: #fff;
+  color: var(--ink);
+}
+
+.masukan-form input:focus,
+.masukan-form textarea:focus,
+.masukan-form select:focus {
+  outline: 2px solid var(--orange);
+  border-color: transparent;
 }
 
 .checkout-form label {

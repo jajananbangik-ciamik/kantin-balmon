@@ -38,6 +38,9 @@ export default function Navbar({ onCartOpen }) {
             {c.name}
           </NavLink>
         ))}
+        <NavLink to="/masukan" className="nav-feedback" onClick={() => setMenuOpen(false)}>
+          Beri Masukan
+        </NavLink>
       </nav>
     </header>
   )

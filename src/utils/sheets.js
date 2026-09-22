@@ -86,8 +86,66 @@ export async function fetchStocks() {
         featured: data.featured || [],
         products: data.products || [],
         categories: data.categories || [],
+        images: data.images || {},
       }
     }
+    return { ok: false, reason: 'bad-response' }
+  } catch (err) {
+    return { ok: false, reason: err.message }
+  }
+}
+
+export async function saveProductImage(productId, dataUrl) {
+  const url = getSheetsUrl()
+  if (!url) return { ok: false, reason: 'not-configured' }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'setProductImage', productId, dataUrl, token: getStockToken() }),
+    })
+    if (!res.ok) return { ok: false, reason: 'http-' + res.status }
+    const data = await res.json()
+    if (data && data.ok) return { ok: true, images: data.images || {} }
+    if (data && data.error) return { ok: false, reason: data.error }
+    return { ok: false, reason: 'bad-response' }
+  } catch (err) {
+    return { ok: false, reason: err.message }
+  }
+}
+
+export async function removeProductImage(productId) {
+  const url = getSheetsUrl()
+  if (!url) return { ok: false, reason: 'not-configured' }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'removeProductImage', productId, token: getStockToken() }),
+    })
+    if (!res.ok) return { ok: false, reason: 'http-' + res.status }
+    const data = await res.json()
+    if (data && data.ok) return { ok: true, images: data.images || {} }
+    if (data && data.error) return { ok: false, reason: data.error }
+    return { ok: false, reason: 'bad-response' }
+  } catch (err) {
+    return { ok: false, reason: err.message }
+  }
+}
+
+export async function sendFeedback({ name, category, message }) {
+  const url = getSheetsUrl()
+  if (!url) return { ok: false, reason: 'not-configured' }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'masukan', name, category, message, createdAt: new Date().toISOString() }),
+    })
+    if (!res.ok) return { ok: false, reason: 'http-' + res.status }
+    const data = await res.json()
+    if (data && data.ok) return { ok: true }
+    if (data && data.error) return { ok: false, reason: data.error }
     return { ok: false, reason: 'bad-response' }
   } catch (err) {
     return { ok: false, reason: err.message }

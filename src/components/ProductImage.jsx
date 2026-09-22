@@ -5,10 +5,10 @@ import { useUploads } from '../context/UploadsContext'
 const ID_EXTS = ['png', 'jpg', 'jpeg', 'webp']
 
 export default function ProductImage({ product, alt }) {
-  const { uploads } = useUploads()
+  const { uploads, centralImages } = useUploads()
   const [stage, setStage] = useState(0)
   const remote = imageSources[product.id]
-  const override = uploads[product.id]
+  const override = centralImages[product.id] || uploads[product.id]
 
   if (override) {
     return <img src={override} alt={alt} loading="lazy" />

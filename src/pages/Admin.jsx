@@ -24,7 +24,7 @@ const checkAuthed = () => {
 }
 
 export default function Admin() {
-  const { uploads, setUpload, removeUpload } = useUploads()
+  const { uploads, centralImages, setUpload, removeUpload } = useUploads()
   const { getStock, setStock, removeStock, refresh, syncing, isCentral, featured, updateFeatured, loaded } =
     useStock()
   const {
@@ -273,7 +273,7 @@ export default function Admin() {
     setBusyId(product.id)
     try {
       const dataUrl = await resizeImageFile(file)
-      setUpload(product.id, dataUrl)
+      await setUpload(product.id, dataUrl)
     } catch (err) {
       alert('Gagal memproses gambar: ' + err.message)
     } finally {
@@ -952,8 +952,12 @@ export default function Admin() {
       ) : (
         <div>
           <p className="hint">
-            Upload di sini hanya tersimpan di perangkat ini. Foto permanen: taruh foto di folder
-            new-images di komputer, lalu jalankan update-images dan deploy.
+            Foto yang diupload di sini otomatis tersimpan terpusat (via Google Sheets) sehingga
+            langsung tampil untuk semua pengunjung. Pastikan Apps Script sudah di-deploy ulang
+            dengan versi terbaru (<code>google-sheet-appscript.gs</code>) agar penyimpanan foto
+            terpusat aktif. Untuk foto berkualitas penuh, tetap bisa pakai folder new-images lalu
+            {` `}
+            <code>npm run update-images</code> + deploy.
           </p>
           {categories.map((cat) => {
           const items = products.filter((p) => p.category === cat.slug)
@@ -979,7 +983,7 @@ export default function Admin() {
                         onChange={(e) => onPick(product, e.target.files?.[0])}
                       />
                     </label>
-                    {uploads[product.id] && (
+                    {(uploads[product.id] || centralImages[product.id]) && (
                       <button
                         className="btn btn-block"
                         style={{ background: '#fff1f2', color: '#e03131', border: '1px solid #ffc9c9' }}

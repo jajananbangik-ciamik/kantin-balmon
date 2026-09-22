@@ -13,6 +13,7 @@ import Home from './pages/Home'
 import CategoryPage from './pages/CategoryPage'
 import Checkout from './pages/Checkout'
 import Admin from './pages/Admin'
+import Masukan from './pages/Masukan'
 
 function LoadingGate({ children }) {
   const catalog = useCatalog()
@@ -51,6 +52,7 @@ export default function App() {
                   <Route path="/kategori/:slug" element={<CategoryPage />} />
                   <Route path="/checkout" element={<Checkout />} />
                   <Route path="/admin" element={<Admin />} />
+                  <Route path="/masukan" element={<Masukan />} />
                 </Routes>
               </main>
               <Footer />

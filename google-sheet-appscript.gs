@@ -21,6 +21,15 @@
 //
 // Sheet "Pesanan" = rekap daftar belanja.
 // Sheet "Stok"    = stok terpusat (Produk ID, Nama, Stok).
+// Sheet "Gambar"  = foto produk terpusat (Produk ID, URL Drive). Foto yang
+//     diupload lewat halaman Admin / Upload Foto masuk ke sini sehingga
+//     otomatis tampil untuk semua pengunjung (tanpa deploy ulang).
+// Sheet "Masukan" = saran/kritik dari pengunjung lewat menu "Beri Masukan".
+//
+// PENTING saat men-deploy ulang:
+//   - Google Sheets sekarang menyimpan foto via Google Drive (folder
+//     "Kantin Balmon Gambar"). Saat deploy dari menu Deploy -> New deployment,
+//     pilih izin yang memunculkan persetujuan akses Drive & foto.
 // ============================================================
 
 const TOKEN = ' rahasia123'; // ganti, mis. TOKEN = 'rahasia123';
@@ -42,6 +51,86 @@ function getStokSheet_() {
   if (!sh) {
     sh = ss.insertSheet('Stok');
     sh.appendRow(['Produk ID', 'Nama', 'Stok']);
+  }
+  return sh;
+}
+
+// Sheet "Gambar"  = foto produk terpusat (Produk ID -> URL Drive).
+// Sheet "Masukan" = saran/masukan dari pengunjung.
+function getGambarSheet_() {
+  const ss = getSpreadsheet_();
+  let sh = ss.getSheetByName('Gambar');
+  if (!sh) {
+    sh = ss.insertSheet('Gambar');
+    sh.appendRow(['Produk ID', 'URL']);
+  }
+  return sh;
+}
+
+function readImages_() {
+  const sh = getGambarSheet_();
+  const rows = sh.getDataRange().getValues();
+  const images = {};
+  for (let i = 1; i < rows.length; i++) {
+    const id = rows[i][0];
+    if (id != null && String(id).trim() !== '' && rows[i][1]) {
+      images[String(id)] = String(rows[i][1]);
+    }
+  }
+  return images;
+}
+
+function writeImage_(productId, url) {
+  const sh = getGambarSheet_();
+  const rows = sh.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(productId)) {
+      sh.getRange(i + 1, 2).setValue(url);
+      return;
+    }
+  }
+  sh.appendRow([String(productId), url]);
+}
+
+function deleteImage_(productId) {
+  const sh = getGambarSheet_();
+  const rows = sh.getDataRange().getValues();
+  for (let i = rows.length - 1; i >= 1; i--) {
+    if (String(rows[i][0]) === String(productId)) {
+      sh.getRange(i + 1, 1, 1, sh.getLastColumn()).deleteCells(
+        SpreadsheetApp.Dimension.ROWS
+      );
+      return;
+    }
+  }
+}
+
+function getGambarFolder_() {
+  const name = 'Kantin Balmon Gambar';
+  const folders = DriveApp.getFoldersByName(name);
+  if (folders.hasNext()) return folders.next();
+  return DriveApp.createFolder(name);
+}
+
+function saveImageToDrive_({ productId, dataUrl }) {
+  const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/.exec(String(dataUrl || ''));
+  if (!m) return null;
+  const mime = m[1];
+  const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
+  const bytes = Utilities.base64Decode(m[2]);
+  const blob = Utilities.newBlob(bytes, mime, String(productId) + '.' + ext);
+  const folder = getGambarFolder_();
+  const file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return 'https://drive.google.com/uc?export=view&id=' + file.getId();
+}
+
+function getMasukanSheet_() {
+  const ss = getSpreadsheet_();
+  let sh = ss.getSheetByName('Masukan');
+  if (!sh) {
+    sh = ss.insertSheet('Masukan');
+    sh.appendRow(['Waktu', 'Nama', 'Kategori', 'Pesan']);
   }
   return sh;
 }
@@ -373,6 +462,7 @@ function doGet(e) {
     featured: readFeatured_(),
     products: readProducts_(),
     categories: readCategories_(),
+    images: readImages_(),
   });
 }
 
@@ -425,6 +515,33 @@ function doPost(e) {
     if (!authorized_(data)) return json_({ ok: false, error: 'forbidden' });
     writeCategories_(data.categories);
     return json_({ ok: true, categories: readCategories_() });
+  }
+
+  if (action === 'setProductImage') {
+    if (!authorized_(data)) return json_({ ok: false, error: 'forbidden' });
+    if (data.productId == null || !data.dataUrl) return json_({ ok: false, error: 'productId' });
+    const url = saveImageToDrive_({ productId: data.productId, dataUrl: data.dataUrl });
+    if (!url) return json_({ ok: false, error: 'bad-image' });
+    writeImage_(data.productId, url);
+    return json_({ ok: true, images: readImages_() });
+  }
+
+  if (action === 'removeProductImage') {
+    if (!authorized_(data)) return json_({ ok: false, error: 'forbidden' });
+    if (data.productId == null) return json_({ ok: false, error: 'productId' });
+    deleteImage_(data.productId);
+    return json_({ ok: true, images: readImages_() });
+  }
+
+  if (action === 'masukan') {
+    const sheet = getMasukanSheet_();
+    sheet.appendRow([
+      data.createdAt || new Date(),
+      String(data.name || ''),
+      String(data.category || ''),
+      String(data.message || ''),
+    ]);
+    return json_({ ok: true });
   }
 
   if (action === 'order') {

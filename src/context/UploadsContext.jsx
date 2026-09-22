@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { getSheetsUrl, fetchStocks, saveProductImage, removeProductImage } from '../utils/sheets'
 
 const UploadsContext = createContext(null)
 const STORAGE_KEY = 'kantin-balmon-uploads'
@@ -33,24 +34,70 @@ export function resizeImageFile(file, maxSize = 480) {
 
 export function UploadsProvider({ children }) {
   const [uploads, setUploads] = useState(loadUploads)
+  const [centralImages, setCentralImages] = useState({})
+  const [centralLoaded, setCentralLoaded] = useState(false)
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(uploads))
   }, [uploads])
 
-  const setUpload = (productId, dataUrl) => {
-    setUploads((prev) => ({ ...prev, [productId]: dataUrl }))
+  const refresh = async () => {
+    if (!getSheetsUrl()) {
+      setCentralLoaded(true)
+      return { ok: false, reason: 'not-configured' }
+    }
+    const res = await fetchStocks()
+    if (res.ok) {
+      setCentralImages(res.images || {})
+      setCentralLoaded(true)
+    }
+    return res
   }
 
-  const removeUpload = (productId) => {
+  useEffect(() => {
+    refresh()
+    const onUrlChange = () => refresh()
+    window.addEventListener('kantin-balmon-sheets-url', onUrlChange)
+    return () => window.removeEventListener('kantin-balmon-sheets-url', onUrlChange)
+  }, [])
+
+  const setUpload = async (productId, dataUrl) => {
+    setUploads((prev) => ({ ...prev, [productId]: dataUrl }))
+    setCentralImages((prev) => ({ ...prev, [productId]: dataUrl }))
+    if (!getSheetsUrl()) return { ok: false, reason: 'not-configured' }
+    const res = await saveProductImage(productId, dataUrl)
+    if (res.ok) {
+      setCentralImages((prev) => ({ ...prev, [productId]: res.images[productId] ?? dataUrl }))
+    }
+    return res
+  }
+
+  const removeUpload = async (productId) => {
     setUploads((prev) => {
       const next = { ...prev }
       delete next[productId]
       return next
     })
+    setCentralImages((prev) => {
+      const next = { ...prev }
+      delete next[productId]
+      return next
+    })
+    if (!getSheetsUrl()) return { ok: false, reason: 'not-configured' }
+    return removeProductImage(productId)
   }
 
-  const value = useMemo(() => ({ uploads, setUpload, removeUpload }), [uploads])
+  const value = useMemo(
+    () => ({
+      uploads,
+      centralImages,
+      centralLoaded,
+      setUpload,
+      removeUpload,
+      refreshUploads: refresh,
+    }),
+    [uploads, centralImages, centralLoaded],
+  )
   return <UploadsContext.Provider value={value}>{children}</UploadsContext.Provider>
 }
 
