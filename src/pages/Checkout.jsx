@@ -156,6 +156,16 @@ export default function Checkout() {
             </div>
           </div>
 
+          <div className="qris-box">
+            <img src="/qris.jpg" alt="QRIS Kantin Balmon" className="qris-img" />
+            <p className="qris-total">
+              Total: <strong>{formatRupiah(order.subtotal)}</strong>
+            </p>
+            <p className="qris-hint">
+              Scan QRIS di samping untuk pembayaran, lalu tunjukkan bukti ke kasir.
+            </p>
+          </div>
+
           <div className="result-actions no-print">
             <button className="btn btn-primary" onClick={printOrder}>
               Cetak / Simpan PDF

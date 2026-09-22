@@ -1,4 +1,4 @@
-const CACHE_PREFIX = 'kantin-balmon-v3'
+const CACHE_PREFIX = 'kantin-balmon-v4'
 
 self.addEventListener('install', () => {
   self.skipWaiting()

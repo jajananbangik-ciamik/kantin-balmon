@@ -731,6 +731,36 @@ a {
   flex: 1;
 }
 
+.qris-box {
+  text-align: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 18px;
+}
+
+.qris-img {
+  width: 180px;
+  max-width: 70%;
+  border-radius: 8px;
+}
+
+.qris-total {
+  margin: 10px 0 2px;
+  font-size: 15px;
+}
+
+.qris-total strong {
+  color: var(--orange-dark);
+}
+
+.qris-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .history-item {
   background: #fff;
   border: 1px solid var(--line);
