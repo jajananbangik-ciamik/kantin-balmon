@@ -40,7 +40,7 @@ export default function Admin() {
   const [passInput, setPassInput] = useState('')
   const [passError, setPassError] = useState(false)
   const [loggingIn, setLoggingIn] = useState(false)
-  const [tab, setTab] = useState('stok')
+  const [tab, setTab] = useState('menu')
   const [busyId, setBusyId] = useState(null)
   const [stockInputs, setStockInputs] = useState({})
   const [stockSaving, setStockSaving] = useState(false)
@@ -71,7 +71,6 @@ export default function Admin() {
   const [catUiSaved, setCatUiSaved] = useState(false)
   const [catDirty, setCatDirty] = useState(false)
   const [catAutoWarning, setCatAutoWarning] = useState('')
-  const fileRef = useRef(null)
   const featListRef = useRef(null)
   const stockTimerRef = useRef(null)
   const menuTimerRef = useRef(null)
@@ -268,7 +267,7 @@ export default function Admin() {
     setReportLoading(false)
   }
 
-  const onPick = async (product, file) => {
+  const onPick = async (product, file, inputEl) => {
     if (!file) return
     setBusyId(product.id)
     try {
@@ -278,7 +277,7 @@ export default function Admin() {
       alert('Gagal memproses gambar: ' + err.message)
     } finally {
       setBusyId(null)
-      if (fileRef.current) fileRef.current.value = ''
+      if (inputEl) inputEl.value = ''
     }
   }
 
@@ -456,7 +455,7 @@ export default function Admin() {
     <div className="page">
       <div className="page-head">
         <h1 className="page-head-title">Manajemen Toko</h1>
-        <p>Kelola stok (terpusat), upload foto, dan rekap pesanan via Google Sheets.</p>
+        <p>Kelola menu jajanan, stok, dan foto produk dalam satu halaman. Rekap pesanan via Google Sheets.</p>
       </div>
 
       <section className="section sheets-section">
@@ -493,16 +492,10 @@ export default function Admin() {
 
       <div className="admin-tabs">
         <button
-          className={`admin-tab${tab === 'stok' ? ' active' : ''}`}
-          onClick={() => setTab('stok')}
+          className={`admin-tab${tab === 'menu' ? ' active' : ''}`}
+          onClick={() => setTab('menu')}
         >
-          Stok Produk
-        </button>
-        <button
-          className={`admin-tab${tab === 'foto' ? ' active' : ''}`}
-          onClick={() => setTab('foto')}
-        >
-          Upload Foto
+          Produk, Stok &amp; Foto
         </button>
         <button
           className={`admin-tab${tab === 'unggulan' ? ' active' : ''}`}
@@ -515,12 +508,6 @@ export default function Admin() {
           onClick={() => setTab('laporan')}
         >
           Laporan Keuntungan
-        </button>
-        <button
-          className={`admin-tab${tab === 'menu' ? ' active' : ''}`}
-          onClick={() => setTab('menu')}
-        >
-          Menu Jajanan
         </button>
       </div>
 
@@ -604,19 +591,23 @@ export default function Admin() {
             )}
           </div>
           <hr className="menu-divider" />
-          <h3 className="menu-subtitle">Daftar Produk</h3>
+          <h3 className="menu-subtitle">Daftar Produk — Ubah, Stok, &amp; Foto</h3>
           <p className="hint">
             {isCentral
-              ? 'Ubah nama, harga, kategori, atau sembunyikan produk. Perubahan otomatis tersimpan dan langsung tampil untuk semua pengunjung.'
-              : 'Mode lokal: perubahan hanya tampil di perangkat ini. Hubungkan Google Sheets agar tampil untuk semua.'}
+              ? 'Atur nama, harga, kategori, stok, dan foto produk dalam satu daftar. Stok & foto terpusat via Google Sheets — perubahan otomatis tersimpan dan bisa ketik jumlah stok lalu berhenti sejenak.'
+              : 'Mode lokal: perubahan hanya tampil di perangkat ini. Hubungkan Google Sheets agar stok & foto terpusat untuk semua pengunjung.'}
           </p>
           {!catLoaded && <p className="hint">Memuat data...</p>}
           <div className="feat-actions">
             <button className="btn btn-outline" onClick={addMenuRow}>
               + Tambah Produk
             </button>
+            <button className="btn btn-outline" onClick={() => refresh()} disabled={syncing}>
+              {syncing ? 'Memuat ulang...' : 'Muat Ulang Stok'}
+            </button>
             {menuSaving && <span className="hint">Menyimpan...</span>}
             {menuSaved && <span className="hint ok">Tersimpan.</span>}
+            {stockSaving && <span className="hint">Menyimpan stok...</span>}
           </div>
           <input
             type="text"
@@ -631,62 +622,123 @@ export default function Admin() {
             <div className="stock-list">
               {menuDraft
                 .filter((r) => !menuSearch || r.name.toLowerCase().includes(menuSearch.toLowerCase()))
-                .map((r) => (
-                  <div key={r.id} className={`stock-row menu-row${r.active ? '' : ' off'}`}>
-                    <div className="stock-info menu-info">
-                      <input
-                        className="menu-input"
-                        value={r.name}
-                        onChange={(e) => updateMenuRow(r.id, 'name', e.target.value)}
-                      />
-                      <input
-                        className="menu-input small"
-                        value={r.priceNote ?? ''}
-                        placeholder="Catatan harga (opsional)"
-                        onChange={(e) => updateMenuRow(r.id, 'priceNote', e.target.value)}
-                      />
-                    </div>
-                    <div className="stock-actions">
-                      <input
-                        type="number"
-                        min="0"
-                        className="menu-price"
-                        value={r.price ?? ''}
-                        placeholder="Harga"
-                        onChange={(e) =>
-                          updateMenuRow(r.id, 'price', e.target.value === '' ? null : Number(e.target.value))
-                        }
-                      />
-                      <select
-                        className="menu-select"
-                        value={r.category}
-                        onChange={(e) => updateMenuRow(r.id, 'category', e.target.value)}
-                      >
-                        {categories.map((c) => (
-                          <option key={c.slug} value={c.slug}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                      <label className="menu-toggle">
+                .map((r) => {
+                  const stock = getStock(r.id)
+                  const tracked = stock !== null
+                  const hasImage = !!(uploads[r.id] || centralImages[r.id])
+                  return (
+                    <div key={r.id} className={`stock-row prod-row${r.active ? '' : ' off'}`}>
+                      <div className="prod-thumb">
+                        <div className="admin-thumb">
+                          <ProductImage product={r} alt={r.name} />
+                        </div>
+                        <label className="btn btn-outline btn-block">
+                          {busyId === r.id ? 'Memproses...' : 'Pilih Foto'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            disabled={busyId === r.id}
+                            onChange={(e) => onPick(r, e.target.files?.[0], e.target)}
+                          />
+                        </label>
+                        {hasImage && (
+                          <button className="btn btn-block btn-danger" onClick={() => removeUpload(r.id)}>
+                            Hapus Foto
+                          </button>
+                        )}
+                      </div>
+                      <div className="prod-main">
                         <input
-                          type="checkbox"
-                          checked={r.active}
-                          onChange={(e) => updateMenuRow(r.id, 'active', e.target.checked)}
+                          className="menu-input"
+                          value={r.name}
+                          onChange={(e) => updateMenuRow(r.id, 'name', e.target.value)}
                         />
-                        Tampil
-                      </label>
-                      <button
-                        className="btn btn-outline"
-                        onClick={() => removeMenuRow(r.id)}
-                        disabled={!r.active}
-                        title={r.active ? 'Hapus/hilangkan produk' : 'Produk sudah tidak tampil'}
-                      >
-                        Hapus
-                      </button>
+                        <div className="prod-meta">
+                          <input
+                            type="number"
+                            min="0"
+                            className="menu-price"
+                            value={r.price ?? ''}
+                            placeholder="Harga"
+                            onChange={(e) =>
+                              updateMenuRow(r.id, 'price', e.target.value === '' ? null : Number(e.target.value))
+                            }
+                          />
+                          <input
+                            className="menu-input prod-grow"
+                            value={r.priceNote ?? ''}
+                            placeholder="Catatan harga (opsional)"
+                            onChange={(e) => updateMenuRow(r.id, 'priceNote', e.target.value)}
+                          />
+                        </div>
+                        <div className="prod-meta">
+                          <select
+                            className="menu-select"
+                            value={r.category}
+                            onChange={(e) => updateMenuRow(r.id, 'category', e.target.value)}
+                          >
+                            {categories.map((c) => (
+                              <option key={c.slug} value={c.slug}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                          <label className="menu-toggle">
+                            <input
+                              type="checkbox"
+                              checked={r.active}
+                              onChange={(e) => updateMenuRow(r.id, 'active', e.target.checked)}
+                            />
+                            Tampil
+                          </label>
+                          <button
+                            className="btn btn-outline"
+                            onClick={() => removeMenuRow(r.id)}
+                            disabled={!r.active}
+                            title={r.active ? 'Hapus/hilangkan produk' : 'Produk sudah tidak tampil'}
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                        <p className={`stock-status${tracked && stock <= 0 ? ' out' : ''}`}>
+                          {!tracked
+                            ? 'Stok tidak dibatasi'
+                            : stock <= 0
+                              ? 'Stok habis'
+                              : `Sisa ${stock}`}
+                        </p>
+                        <div className="stock-actions">
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="Jumlah"
+                            value={stockInputs[r.id] ?? ''}
+                            onChange={(e) => handleStockInput(r, e.target.value)}
+                          />
+                          <button
+                            className="btn btn-primary"
+                            onClick={() => applyStock(r, Number(stockInputs[r.id]))}
+                          >
+                            Set
+                          </button>
+                          <button className="btn btn-outline" onClick={() => adjustStock(r, 5)}>
+                            +5
+                          </button>
+                          <button className="btn btn-outline" onClick={() => adjustStock(r, -5)}>
+                            -5
+                          </button>
+                          <button className="btn btn-outline" onClick={() => applyStock(r, 0)}>
+                            Habis
+                          </button>
+                          <button className="btn btn-outline" onClick={() => removeStock(r.id)}>
+                            Tanpa Stok
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
             </div>
           )}
         </div>
@@ -810,7 +862,7 @@ export default function Admin() {
             </div>
           </section>
         </div>
-      ) : tab === 'unggulan' ? (
+      ) : (
         <div>
           <p className="hint">
             {isCentral
@@ -881,123 +933,6 @@ export default function Admin() {
                 ))}
             </div>
           </section>
-        </div>
-      ) : tab === 'stok' ? (
-        <>
-          <button className="btn btn-outline" onClick={() => refresh()} disabled={syncing}>
-            {syncing ? 'Memuat ulang...' : 'Muat Ulang Stok'}
-          </button>
-          <p className="hint">
-            Ketik jumlah stok lalu berhenti sejenak — tersimpan otomatis. Tombol cepat tetap bisa
-            dipakai.
-          </p>
-          {stockSaving && <p className="hint">Menyimpan stok...</p>}
-          {categories.map((cat) => {
-            const items = products.filter((p) => p.category === cat.slug)
-            if (!items.length) return null
-            return (
-              <section key={cat.slug} className="section">
-                <h2 className="section-title">{cat.name}</h2>
-                <div className="stock-list">
-                  {items.map((product) => {
-                    const stock = getStock(product.id)
-                    const tracked = stock !== null
-                    return (
-                      <div key={product.id} className="stock-row">
-                        <div className="stock-info">
-                          <p className="stock-name">{product.name}</p>
-                          <p className={`stock-status${tracked && stock <= 0 ? ' out' : ''}`}>
-                            {!tracked
-                              ? 'Stok tidak dibatasi'
-                              : stock <= 0
-                                ? 'Stok habis'
-                                : `Sisa ${stock}`}
-                          </p>
-                        </div>
-                        <div className="stock-actions">
-                          <input
-                            type="number"
-                            min="0"
-                            placeholder="Jumlah"
-                            value={stockInputs[product.id] ?? ''}
-                            onChange={(e) => handleStockInput(product, e.target.value)}
-                          />
-                          <button
-                            className="btn btn-primary"
-                            onClick={() => applyStock(product, Number(stockInputs[product.id]))}
-                          >
-                            Set
-                          </button>
-                          <button className="btn btn-outline" onClick={() => adjustStock(product, 5)}>
-                            +5
-                          </button>
-                          <button className="btn btn-outline" onClick={() => adjustStock(product, -5)}>
-                            -5
-                          </button>
-                          <button className="btn btn-outline" onClick={() => applyStock(product, 0)}>
-                            Habis
-                          </button>
-                          <button className="btn btn-outline" onClick={() => removeStock(product.id)}>
-                            Tanpa Stok
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </section>
-            )
-          })}
-        </>
-      ) : (
-        <div>
-          <p className="hint">
-            Foto yang diupload di sini otomatis tersimpan terpusat (via Google Sheets) sehingga
-            langsung tampil untuk semua pengunjung. Pastikan Apps Script sudah di-deploy ulang
-            dengan versi terbaru (<code>google-sheet-appscript.gs</code>) agar penyimpanan foto
-            terpusat aktif. Untuk foto berkualitas penuh, tetap bisa pakai folder new-images lalu
-            {` `}
-            <code>npm run update-images</code> + deploy.
-          </p>
-          {categories.map((cat) => {
-          const items = products.filter((p) => p.category === cat.slug)
-          if (!items.length) return null
-          return (
-            <section key={cat.slug} className="section">
-              <h2 className="section-title">{cat.name}</h2>
-              <div className="admin-grid">
-                {items.map((product) => (
-                  <div key={product.id} className="admin-card">
-                    <div className="admin-thumb">
-                      <ProductImage product={product} alt={product.name} />
-                    </div>
-                    <p className="admin-name">{product.name}</p>
-                    <label className="btn btn-outline btn-block">
-                      {busyId === product.id ? 'Memproses...' : 'Pilih Foto'}
-                      <input
-                        ref={fileRef}
-                        type="file"
-                        accept="image/*"
-                        hidden
-                        disabled={busyId === product.id}
-                        onChange={(e) => onPick(product, e.target.files?.[0])}
-                      />
-                    </label>
-                    {(uploads[product.id] || centralImages[product.id]) && (
-                      <button
-                        className="btn btn-block"
-                        style={{ background: '#fff1f2', color: '#e03131', border: '1px solid #ffc9c9' }}
-                        onClick={() => removeUpload(product.id)}
-                      >
-                        Hapus Foto
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          )
-        })}
         </div>
       )}
     </div>

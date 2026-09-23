@@ -1145,6 +1145,73 @@ a {
   font-family: 'Consolas', 'Menlo', monospace;
 }
 
+/* ---------- Admin: produk, stok & foto (satu halaman) ---------- */
+.prod-row {
+  align-items: stretch;
+  gap: 14px;
+  padding: 14px;
+}
+
+.prod-row.off {
+  opacity: 0.55;
+}
+
+.prod-thumb {
+  flex: 0 0 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prod-thumb .admin-thumb {
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--orange-light);
+}
+
+.prod-thumb .admin-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.prod-thumb .btn-block {
+  margin-top: 0;
+}
+
+.prod-main {
+  flex: 1 1 320px;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prod-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.prod-grow {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.btn-danger {
+  background: #fff1f2;
+  color: #e03131;
+  border: 1px solid #ffc9c9;
+}
+
+.btn-danger:hover {
+  background: #ffe3e3;
+  border-color: #ffa8a8;
+}
+
 /* ---------- Stock badge on product card ---------- */
 .stock-badge {
   display: inline-block;
