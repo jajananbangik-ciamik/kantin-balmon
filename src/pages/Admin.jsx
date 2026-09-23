@@ -307,6 +307,15 @@ export default function Admin() {
 
   const featList = featDraft ?? featured
 
+  const featuredIndex = new Map(featured.map((id, i) => [id, i]))
+  const sortedMenuRows = [...(menuDraft || [])]
+    .filter((r) => !menuSearch || r.name.toLowerCase().includes(menuSearch.toLowerCase()))
+    .sort((a, b) => {
+      const ai = featuredIndex.has(a.id) ? featuredIndex.get(a.id) : Number.MAX_SAFE_INTEGER
+      const bi = featuredIndex.has(b.id) ? featuredIndex.get(b.id) : Number.MAX_SAFE_INTEGER
+      return ai - bi
+    })
+
   const toggleFeat = (id) => {
     setFeatDraft((prev) => {
       const cur = prev ?? featured
@@ -620,9 +629,7 @@ export default function Admin() {
             <p className="hint">Menyiapkan daftar...</p>
           ) : (
             <div className="stock-list">
-              {menuDraft
-                .filter((r) => !menuSearch || r.name.toLowerCase().includes(menuSearch.toLowerCase()))
-                .map((r) => {
+              {sortedMenuRows.map((r) => {
                   const stock = getStock(r.id)
                   const tracked = stock !== null
                   const hasImage = !!(uploads[r.id] || centralImages[r.id])

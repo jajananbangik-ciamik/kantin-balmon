@@ -23,6 +23,14 @@ export default function Home() {
   const { categories, products } = useCatalog()
   const ids = Array.from(new Set(featured && featured.length ? featured : DEFAULT_FEATURED))
   const featuredList = ids.map((id) => products.find((p) => p.id === id)).filter(Boolean)
+  const grouped = categories.map((c) => ({
+    name: c.name,
+    items: featuredList.filter((p) => p.category === c.slug),
+  }))
+  const knownSlugs = new Set(categories.map((c) => c.slug))
+  const others = featuredList.filter((p) => !knownSlugs.has(p.category))
+  if (others.length) grouped.push({ name: 'Lainnya', items: others })
+  const featuredGroups = grouped.filter((g) => g.items.length)
 
   return (
     <>
@@ -36,11 +44,16 @@ export default function Home() {
 
       <section className="section">
         <h2 className="section-title">Menu Unggulan</h2>
-        <div className="product-grid">
-          {featuredList.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
+        {featuredGroups.map((g) => (
+          <div key={g.name} className="featured-group">
+            <h3 className="group-heading">{g.name}</h3>
+            <div className="product-grid">
+              {g.items.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
 
       <section className="section">

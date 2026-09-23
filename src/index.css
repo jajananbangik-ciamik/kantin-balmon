@@ -318,6 +318,23 @@ a {
   gap: 16px;
 }
 
+/* ---------- Featured menu groups (grouped by type) ---------- */
+.featured-group {
+  margin-bottom: 26px;
+}
+
+.featured-group:last-child {
+  margin-bottom: 0;
+}
+
+.group-heading {
+  font-size: 17px;
+  margin: 0 0 12px;
+  padding-left: 10px;
+  border-left: 4px solid var(--orange);
+  color: var(--orange-dark);
+}
+
 /* ---------- Product card ---------- */
 .product-card {
   display: flex;
