@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { products as baseProducts, categories as baseCategories, formatRupiah } from '../data/products'
+import { categories as baseCategories, formatRupiah } from '../data/products'
 import { useUploads, resizeImageFile } from '../context/UploadsContext'
 import { useStock } from '../context/StockContext'
 import { useCatalog } from '../context/CatalogContext'
@@ -105,7 +105,7 @@ export default function Admin() {
   }, [tab, catLoaded, categories, catEdits])
 
   useEffect(() => {
-    if (tab === 'menu' && !menuLoaded && products.length) {
+    if (tab === 'menu' && !menuLoaded && catLoaded) {
       const visible = products.map((p) => ({
         id: p.id,
         name: p.name,
@@ -114,21 +114,11 @@ export default function Admin() {
         priceNote: p.priceNote || '',
         active: true,
       }))
-      const hidden = baseProducts
-        .filter((b) => !products.some((p) => p.id === b.id))
-        .map((b) => ({
-          id: b.id,
-          name: b.name,
-          category: b.category,
-          price: b.price ?? null,
-          priceNote: b.priceNote || '',
-          active: false,
-        }))
-      setMenuDraft([...visible, ...hidden])
+      setMenuDraft(visible)
       setMenuLoaded(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, menuLoaded, products])
+  }, [tab, menuLoaded, catLoaded, products])
 
   useEffect(() => {
     if (tab === 'laporan') {
@@ -375,7 +365,6 @@ export default function Admin() {
   const addMenuRow = () => {
     setMenuDirty(true)
     setMenuDraft((prev) => [
-      ...prev,
       {
         id: 'produk-' + Date.now().toString().slice(-6),
         name: 'Produk Baru',
@@ -384,6 +373,7 @@ export default function Admin() {
         priceNote: '',
         active: true,
       },
+      ...(prev || []),
     ])
   }
 
