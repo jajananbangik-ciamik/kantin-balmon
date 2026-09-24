@@ -7,9 +7,12 @@
 // 3. File tersalin ke public/images\ dengan nama produk + path di
 //    src/data/products.js ikut diperbarui. Produk yang ditambahkan admin
 //    (di Google Sheets) juga ikut dikenali lewat namanya.
-// 4. Kemudian commit + push (auto-deploy).
+// 4. Versi foto lama dengan ekstensi lain (jpg/jpeg/png/webp) untuk produk
+//    yang sama otomatis dihapus, jadi situs selalu menampilkan foto terbaru.
+// 5. Kemudian commit + push (auto-deploy). Bisa juga dijalankan otomatis
+//    oleh GitHub Actions setiap push ke main (lihat .github/workflows/deploy.yml).
 
-import { copyFile, mkdir, readdir } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, unlink } from 'node:fs/promises'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join, extname } from 'node:path'
 import { products } from '../src/data/products.js'
@@ -17,6 +20,7 @@ import { DEFAULT_SHEETS_URL } from '../src/utils/sheets.js'
 
 const INPUT_DIR = 'new-images'
 const OUT_DIR = 'public/images'
+const ID_EXTS = ['png', 'jpg', 'jpeg', 'webp']
 
 const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '')
 
@@ -97,6 +101,19 @@ async function main() {
 
     const dest = join(OUT_DIR, `${hit.id}${ext}`)
     await copyFile(join(INPUT_DIR, file), dest)
+
+    const newName = ext.replace(/^\./, '')
+    for (const oldName of ID_EXTS) {
+      if (oldName === newName) continue
+      const stale = join(OUT_DIR, `${hit.id}.${oldName}`)
+      try {
+        await unlink(stale)
+        console.log(`DEL  ${hit.id}.${oldName}  (foto lama diganti)`)
+      } catch {
+        /* tidak ada file lama dengan ekstensi itu */
+      }
+    }
+
     matched.push({ id: hit.id, name: hit.name, file, ext, inBase: hit.inBase })
     console.log(`OK   ${file}  ->  ${hit.id}${ext}  (${hit.name})${hit.inBase ? '' : '  [produk admin]'}`)
   }
@@ -105,12 +122,11 @@ async function main() {
     let prod = readFileSync('src/data/products.js', 'utf8')
     let patched = 0
     for (const m of matched) {
-      if (!m.inBase) continue
       const re = new RegExp(`(image: 'images/)${m.id}\\.[a-z0-9]+(')`, 'i')
       if (re.test(prod)) {
         prod = prod.replace(re, `$1${m.id}${m.ext}$2`)
         patched++
-      } else {
+      } else if (m.inBase) {
         console.log(`WARN path gambar "${m.id}" tidak ditemukan di products.js, cek manual.`)
       }
     }

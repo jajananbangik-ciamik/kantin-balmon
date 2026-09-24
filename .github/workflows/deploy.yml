@@ -26,6 +26,8 @@ jobs:
 
       - run: npm install
 
+      - run: npm run update-images
+
       - run: npm run build
 
       - uses: actions/upload-pages-artifact@v3

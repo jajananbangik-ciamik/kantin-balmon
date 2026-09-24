@@ -24,7 +24,7 @@ export const products = [
   { id: 'pempek-grade-b', name: 'Pempek Ikan Grade B', category: 'olahan-ikan', price: 2000, priceNote: 'per satuan', image: 'images/pempek-grade-b.jpeg' },
   { id: 'siomay-tenggiri', name: 'Siomay Tenggiri', category: 'olahan-ikan', price: 4000, priceNote: 'per satuan', image: 'images/siomay-tenggiri.png' },
   { id: 'siomay-grade-b', name: 'Siomay Grade B', category: 'olahan-ikan', price: 2000, priceNote: 'per satuan', image: 'images/siomay-grade-b.png' },
-  { id: 'otak-otak', name: 'Otak-otak', category: 'olahan-ikan', price: 2000, priceNote: 'per satuan', image: 'images/otak-otak.jpeg' },
+  { id: 'otak-otak', name: 'Otak-otak', category: 'olahan-ikan', price: 2000, priceNote: 'per satuan', image: 'images/otak-otak.jpg' },
   { id: 'kerupuk', name: 'Kerupuk', category: 'olahan-ikan', price: 16000, priceNote: 'Kemasan besar', image: 'images/kerupuk.jpeg' },
 
   // ---- Lauk Pauk ----
