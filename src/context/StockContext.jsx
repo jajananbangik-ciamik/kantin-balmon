@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { getSheetsUrl, fetchStocks, sendStockAction, setFeatured as postFeatured } from '../utils/sheets'
+import { useLiveRefresh } from '../hooks/useLiveRefresh'
 
 const StockContext = createContext(null)
 const LOCAL_KEY = 'kantin-balmon-stock'
@@ -26,7 +27,7 @@ export function StockProvider({ children }) {
 
   const isCentral = central !== null
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async ({ silent = false } = {}) => {
     const url = getSheetsUrl()
     if (!url) {
       setCentral(null)
@@ -36,7 +37,7 @@ export function StockProvider({ children }) {
     }
     if (inFlightRef.current) return { ok: false, reason: 'in-flight' }
     inFlightRef.current = true
-    setSyncing(true)
+    if (!silent) setSyncing(true)
     try {
       const res = await fetchStocks()
       if (res.ok) {
@@ -51,7 +52,7 @@ export function StockProvider({ children }) {
       return res
     } finally {
       inFlightRef.current = false
-      setSyncing(false)
+      if (!silent) setSyncing(false)
     }
   }, [])
 
@@ -61,6 +62,9 @@ export function StockProvider({ children }) {
     window.addEventListener('kantin-balmon-sheets-url', onUrlChange)
     return () => window.removeEventListener('kantin-balmon-sheets-url', onUrlChange)
   }, [refresh])
+
+  const liveRefresh = useCallback(() => refresh({ silent: true }), [refresh])
+  useLiveRefresh(liveRefresh, { enabled: isCentral })
 
   const getStock = useCallback(
     (productId) => {

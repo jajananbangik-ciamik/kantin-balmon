@@ -29,6 +29,7 @@ export default function Admin() {
     useStock()
   const {
     products,
+    allProducts,
     categories,
     catEdits,
     saveCatalog,
@@ -106,19 +107,19 @@ export default function Admin() {
 
   useEffect(() => {
     if (tab === 'menu' && !menuLoaded && catLoaded) {
-      const visible = products.map((p) => ({
+      const rows = allProducts.map((p) => ({
         id: p.id,
         name: p.name,
         category: p.category,
         price: p.price ?? null,
         priceNote: p.priceNote || '',
-        active: true,
+        active: p.active !== false,
       }))
-      setMenuDraft(visible)
+      setMenuDraft(rows)
       setMenuLoaded(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, menuLoaded, catLoaded, products])
+  }, [tab, menuLoaded, catLoaded, allProducts])
 
   useEffect(() => {
     if (tab === 'laporan') {

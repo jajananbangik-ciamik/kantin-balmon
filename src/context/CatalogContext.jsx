@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { products as baseProducts, categories as baseCategories } from '../data/products'
 import { getSheetsUrl, fetchStocks, saveProducts, saveCategories as saveCategoriesReq } from '../utils/sheets'
+import { useLiveRefresh } from '../hooks/useLiveRefresh'
 
 const CatalogContext = createContext(null)
 
@@ -8,28 +9,38 @@ const CATEGORY_ORDER = {}
 baseCategories.forEach((c, i) => (CATEGORY_ORDER[c.slug] = i))
 const MAX_CAT_ORDER = Number.MAX_SAFE_INTEGER
 
-function mergeCatalog(base, edits) {
+function mergeCatalog(base, edits, { includeInactive = false } = {}) {
   const map = {}
   edits.forEach((e) => (map[e.id] = e))
   const list = []
   base.forEach((b) => {
     const e = map[b.id]
-    if (e && e.active === false) return
-    if (e) {
-      list.push({
-        ...b,
-        name: e.name ?? b.name,
-        category: e.category || b.category,
-        price: e.price !== null && e.price !== '' ? Number(e.price) : null,
-        priceNote: e.priceNote !== undefined ? e.priceNote : b.priceNote,
-      })
-    } else {
+    if (!e) {
       list.push(b)
+      return
     }
+    const hasName = String(e.name ?? '').trim() !== ''
+    const hidden = e.active === false
+    // Baris "tersembunyi" tanpa nama adalah sisa bug lama (bukan sembunyi sengaja).
+    // Abaikan agar produk bawaan pulih otomatis.
+    if (hidden && !hasName) {
+      list.push(b)
+      return
+    }
+    if (hidden && !includeInactive) return
+    list.push({
+      ...b,
+      name: hasName ? e.name : b.name,
+      category: e.category || b.category,
+      price: e.price !== null && e.price !== '' ? Number(e.price) : null,
+      priceNote: (e.priceNote ?? '') !== '' ? e.priceNote : b.priceNote,
+      active: !hidden,
+    })
   })
   edits.forEach((e) => {
     if (base.some((b) => b.id === e.id)) return
-    if (e.active === false) return
+    const hidden = e.active === false
+    if (hidden && (!includeInactive || !String(e.name || '').trim())) return
     list.push({
       id: e.id,
       name: e.name || '',
@@ -37,6 +48,7 @@ function mergeCatalog(base, edits) {
       price: e.price !== null && e.price !== '' ? Number(e.price) : null,
       priceNote: e.priceNote || '',
       image: '',
+      active: !hidden,
     })
   })
 
@@ -68,7 +80,7 @@ export function CatalogProvider({ children }) {
 
   const isCentral = !!getSheetsUrl()
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async ({ silent = false } = {}) => {
     const url = getSheetsUrl()
     if (!url) {
       setLoaded(true)
@@ -76,7 +88,7 @@ export function CatalogProvider({ children }) {
     }
     if (inFlightRef.current) return { ok: false, reason: 'in-flight' }
     inFlightRef.current = true
-    setSyncing(true)
+    if (!silent) setSyncing(true)
     try {
       const res = await fetchStocks()
       if (res.ok) {
@@ -87,9 +99,11 @@ export function CatalogProvider({ children }) {
       return res
     } finally {
       inFlightRef.current = false
-      setSyncing(false)
+      if (!silent) setSyncing(false)
     }
   }, [])
+
+  const liveRefresh = useCallback(() => refresh({ silent: true }), [refresh])
 
   useEffect(() => {
     refresh()
@@ -98,7 +112,13 @@ export function CatalogProvider({ children }) {
     return () => window.removeEventListener('kantin-balmon-sheets-url', onUrlChange)
   }, [refresh])
 
+  useLiveRefresh(liveRefresh, { enabled: isCentral })
+
   const products = useMemo(() => mergeCatalog(baseProducts, edits), [edits])
+  const allProducts = useMemo(
+    () => mergeCatalog(baseProducts, edits, { includeInactive: true }),
+    [edits],
+  )
   const categories = useMemo(() => {
     if (!catEdits.length) return baseCategories
     return catEdits
@@ -145,45 +165,35 @@ export function CatalogProvider({ children }) {
     async (list) => {
       const url = getSheetsUrl()
       if (!url) return { ok: false, reason: 'not-configured' }
-      const diff = []
-      list.forEach((p) => {
-        const b = baseProducts.find((x) => x.id === p.id)
-        if (!b) {
-          if (p.active === false) return
-          diff.push({
-            id: p.id,
-            name: p.name || '',
-            category: p.category,
-            price: p.price !== null && p.price !== '' ? Number(p.price) : null,
-            priceNote: p.priceNote || '',
-            active: true,
-          })
-          return
-        }
-        if (p.active === false) {
-          diff.push({ id: p.id, active: false })
-          return
-        }
-        const changed =
-          (p.name ?? b.name) !== b.name ||
-          (p.category ?? b.category) !== b.category ||
-          (p.price ?? b.price) !== b.price ||
-          (p.priceNote ?? '') !== (b.priceNote ?? '')
-        if (changed) {
-          diff.push({
-            id: p.id,
-            name: p.name ?? b.name,
-            category: p.category ?? b.category,
-            price: p.price !== null && p.price !== '' ? Number(p.price) : null,
-            priceNote: p.priceNote ?? b.priceNote ?? '',
-            active: true,
-          })
-        }
+      // Kirim SNAPSHOT LENGKAP (bukan diff) karena server mengganti seluruh
+      // isi sheet "Produk". Ini mencegah produk lain ikut terhapus.
+      const rows = []
+      const seen = new Set()
+      ;(Array.isArray(list) ? list : []).forEach((p) => {
+        const id = p && p.id != null ? String(p.id) : ''
+        if (!id || seen.has(id)) return
+        seen.add(id)
+        rows.push({
+          id,
+          name: p.name || '',
+          category: p.category || '',
+          price: p.price !== null && p.price !== '' && p.price != null ? Number(p.price) : null,
+          priceNote: p.priceNote || '',
+          active: p.active !== false,
+        })
       })
       baseProducts.forEach((b) => {
-        if (!list.some((p) => p.id === b.id)) diff.push({ id: b.id, active: false })
+        if (seen.has(b.id)) return
+        rows.push({
+          id: b.id,
+          name: b.name,
+          category: b.category,
+          price: b.price != null ? b.price : null,
+          priceNote: b.priceNote || '',
+          active: false,
+        })
       })
-      const res = await saveProducts(diff)
+      const res = await saveProducts(rows)
       if (!res.ok) {
         await refresh()
         return res
@@ -197,6 +207,7 @@ export function CatalogProvider({ children }) {
   const value = useMemo(
     () => ({
       products,
+      allProducts,
       categories,
       catEdits,
       getProduct,
@@ -211,6 +222,7 @@ export function CatalogProvider({ children }) {
     }),
     [
       products,
+      allProducts,
       categories,
       catEdits,
       getProduct,

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { getSheetsUrl, fetchStocks, saveProductImage, removeProductImage } from '../utils/sheets'
+import { useLiveRefresh } from '../hooks/useLiveRefresh'
 
 const UploadsContext = createContext(null)
 const STORAGE_KEY = 'kantin-balmon-uploads'
@@ -75,6 +76,8 @@ export function UploadsProvider({ children }) {
     window.addEventListener('kantin-balmon-sheets-url', onUrlChange)
     return () => window.removeEventListener('kantin-balmon-sheets-url', onUrlChange)
   }, [])
+
+  useLiveRefresh(refresh, { enabled: !!getSheetsUrl() })
 
   const setUpload = async (productId, dataUrl) => {
     setUploads((prev) => ({ ...prev, [productId]: dataUrl }))
