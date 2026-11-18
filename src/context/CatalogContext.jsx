@@ -39,9 +39,8 @@ function mergeCatalog(base, edits, { includeInactive = false } = {}) {
   })
   edits.forEach((e) => {
     if (base.some((b) => b.id === e.id)) return
-    if (!String(e.name ?? '').trim()) return
     const hidden = e.active === false
-    if (hidden && !includeInactive) return
+    if (hidden && (!includeInactive || !String(e.name || '').trim())) return
     list.push({
       id: e.id,
       name: e.name || '',
@@ -76,12 +75,10 @@ export function CatalogProvider({ children }) {
   const [edits, setEdits] = useState([])
   const [catEdits, setCatEdits] = useState([])
   const [loaded, setLoaded] = useState(false)
-  const [fetchOk, setFetchOk] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const inFlightRef = useRef(false)
 
   const isCentral = !!getSheetsUrl()
-  const ready = isCentral ? loaded && fetchOk : loaded
 
   const refresh = useCallback(async ({ silent = false } = {}) => {
     const url = getSheetsUrl()
@@ -97,9 +94,6 @@ export function CatalogProvider({ children }) {
       if (res.ok) {
         setEdits(res.products || [])
         setCatEdits(res.categories || [])
-        setFetchOk(true)
-      } else {
-        setFetchOk(false)
       }
       setLoaded(true)
       return res
@@ -126,31 +120,20 @@ export function CatalogProvider({ children }) {
     [edits],
   )
   const categories = useMemo(() => {
-    const editMap = new Map(catEdits.map((c) => [c.slug, c]))
-    const list = baseCategories.map((b, i) => {
-      const e = editMap.get(b.slug)
-      return {
-        slug: b.slug,
-        name: e && e.name ? e.name : b.name,
-        tagline: b.tagline,
-        order: e && e.order != null ? e.order : i + 1,
-        active: e ? e.active !== false : true,
-      }
-    })
-    catEdits.forEach((e) => {
-      if (baseCategories.some((b) => b.slug === e.slug) || e.active === false) return
-      list.push({
-        slug: e.slug,
-        name: e.name || e.slug,
-        tagline: '',
-        order: e.order == null ? Number.MAX_SAFE_INTEGER : e.order,
-        active: true,
+    if (!catEdits.length) return baseCategories
+    return catEdits
+      .filter((c) => c.active !== false)
+      .slice()
+      .sort((a, b) => {
+        const ao = a.order == null ? Number.MAX_SAFE_INTEGER : a.order
+        const bo = b.order == null ? Number.MAX_SAFE_INTEGER : b.order
+        return ao - bo
       })
-    })
-    return list
-      .filter((c) => c.active)
-      .sort((a, b) => a.order - b.order)
-      .map(({ slug, name, tagline }) => ({ slug, name, tagline }))
+      .map((c) => ({
+        slug: c.slug,
+        name: c.name,
+        tagline: (baseCategories.find((b) => b.slug === c.slug) || {}).tagline || '',
+      }))
   }, [catEdits])
 
   const getProduct = useCallback((id) => products.find((p) => p.id === id) || null, [products])
@@ -166,7 +149,6 @@ export function CatalogProvider({ children }) {
   const saveCategories = useCallback(async (list) => {
     const url = getSheetsUrl()
     if (!url) return { ok: false, reason: 'not-configured' }
-    if (isCentral && !ready) return { ok: false, reason: 'not-ready' }
     const rows = list.map((c, i) => ({
       slug: String(c.slug || '').trim(),
       name: c.name || c.slug || '',
@@ -177,55 +159,49 @@ export function CatalogProvider({ children }) {
     if (!res.ok) return res
     setCatEdits(res.categories || [])
     return res
-  }, [isCentral, ready])
+  }, [])
 
   const saveCatalog = useCallback(
-    async (list, { deleteIds = [] } = {}) => {
+    async (list) => {
       const url = getSheetsUrl()
       if (!url) return { ok: false, reason: 'not-configured' }
-      if (isCentral && !ready) return { ok: false, reason: 'not-ready' }
-      const norm = (p) => ({
-        id: String(p.id),
-        name: String(p.name || ''),
-        category: String(p.category || ''),
-        price: p.price !== null && p.price !== '' && p.price != null ? Number(p.price) : null,
-        priceNote: String(p.priceNote || ''),
-        active: p.active !== false,
-      })
-      // Ambil keadaan sheet terbaru dulu. Draft admin bisa saja lama karena
-      // perangkat lain menambah produk setelah halaman ini dibuka.
-      const fresh = await fetchStocks()
-      if (!fresh.ok) {
-        await refresh()
-        return { ok: false, reason: fresh.reason || 'stale' }
-      }
-      const map = new Map()
-      ;(fresh.products || []).forEach((p) => {
-        const id = String(p.id || '')
-        if (id && String(p.name || '').trim() && !map.has(id)) map.set(id, norm(p))
-      })
-      baseProducts.forEach((b) => {
-        if (!map.has(b.id)) map.set(b.id, norm(b))
-      })
+      // Kirim SNAPSHOT LENGKAP (bukan diff) karena server mengganti seluruh
+      // isi sheet "Produk". Ini mencegah produk lain ikut terhapus.
+      const rows = []
+      const seen = new Set()
       ;(Array.isArray(list) ? list : []).forEach((p) => {
         const id = p && p.id != null ? String(p.id) : ''
-        if (!id || !String(p.name || '').trim()) return
-        map.set(id, norm(p))
+        if (!id || seen.has(id)) return
+        seen.add(id)
+        rows.push({
+          id,
+          name: p.name || '',
+          category: p.category || '',
+          price: p.price !== null && p.price !== '' && p.price != null ? Number(p.price) : null,
+          priceNote: p.priceNote || '',
+          active: p.active !== false,
+        })
       })
-      const removed = new Set((Array.isArray(deleteIds) ? deleteIds : []).map(String))
-      removed.forEach((id) => map.delete(id))
-      const res = await saveProducts(Array.from(map.values()), {
-        deleteIds: Array.from(removed),
+      baseProducts.forEach((b) => {
+        if (seen.has(b.id)) return
+        rows.push({
+          id: b.id,
+          name: b.name,
+          category: b.category,
+          price: b.price != null ? b.price : null,
+          priceNote: b.priceNote || '',
+          active: false,
+        })
       })
+      const res = await saveProducts(rows)
       if (!res.ok) {
         await refresh()
         return res
       }
       setEdits(res.products || [])
-      setFetchOk(true)
       return res
     },
-    [isCentral, ready, refresh],
+    [refresh],
   )
 
   const value = useMemo(
@@ -242,7 +218,6 @@ export function CatalogProvider({ children }) {
       refresh,
       syncing,
       loaded,
-      ready,
       isCentral,
     }),
     [
@@ -258,7 +233,6 @@ export function CatalogProvider({ children }) {
       refresh,
       syncing,
       loaded,
-      ready,
       isCentral,
     ],
   )

@@ -286,100 +286,20 @@ function readProducts_() {
   return out;
 }
 
-function productRow_(r) {
-  return [
-    String(r.id || '').trim(),
-    String(r.name || ''),
-    String(r.category || ''),
-    r.price != null && r.price !== '' ? Number(r.price) : '',
-    String(r.priceNote || ''),
-    r.active === false ? '0' : '1',
-  ];
-}
-
-function withLock_(fn) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    return fn();
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-// Gabungkan perubahan ke data yang ADA di sheet (bukan timpa seluruh sheet).
-// Baris lama dengan nama kosong (sisa bug versi lama) dibuang. ID yang memang
-// dihapus lewat admin hanya dihapus bila dikirim eksplisit di deleteIds.
-function mergeProducts_(rows, deleteIds) {
+function writeProducts_(rows) {
   const sh = getProdukSheet_();
-  const values = sh.getDataRange().getValues();
-  const map = {};
-  for (let i = 1; i < values.length; i++) {
-    const id = String(values[i][0] == null ? '' : values[i][0]).trim();
-    if (!id || !String(values[i][1] || '').trim()) continue;
-    map[id] = productRow_({
-      id: id,
-      name: values[i][1],
-      category: values[i][2],
-      price: values[i][3] === '' || values[i][3] == null ? null : Number(values[i][3]),
-      priceNote: values[i][4],
-      active: String(values[i][5]) !== '0',
-    });
-  }
-  (Array.isArray(rows) ? rows : []).forEach(function (r) {
-    const id = String(r.id || '').trim();
-    if (!id || !String(r.name || '').trim()) return;
-    map[id] = productRow_(r);
-  });
-  (Array.isArray(deleteIds) ? deleteIds : []).forEach(function (id) {
-    delete map[String(id || '').trim()];
-  });
   sh.clearContents();
   sh.appendRow(['Produk ID', 'Nama', 'Kategori', 'Harga', 'Catatan', 'Aktif']);
-  Object.keys(map).forEach(function (id) {
-    sh.appendRow(map[id]);
+  (Array.isArray(rows) ? rows : []).forEach(function (r) {
+    sh.appendRow([
+      String(r.id || ''),
+      r.name || '',
+      r.category || '',
+      r.price != null && r.price !== '' ? Number(r.price) : '',
+      r.priceNote || '',
+      r.active === false ? '0' : '1',
+    ]);
   });
-  return readProducts_();
-}
-
-// Perbaikan sekali jalan: rapikan duplikat/placeholder, pastikan produk dan
-// kategori bawaan ada, dan buang ID unggulan yang produknya sudah tidak ada.
-function repairCatalog_(baseProducts, baseCats) {
-  const produk = mergeProducts_(baseProducts || [], []);
-  const kategori = getKategoriSheet_();
-  const kvals = kategori.getDataRange().getValues();
-  const kmap = {};
-  for (let i = 1; i < kvals.length; i++) {
-    const slug = String(kvals[i][0] == null ? '' : kvals[i][0]).trim();
-    if (!slug) continue;
-    kmap[slug] = [
-      slug,
-      String(kvals[i][1] || ''),
-      kvals[i][2] === '' || kvals[i][2] == null ? '' : Number(kvals[i][2]),
-      String(kvals[i][3]) === '0' ? '0' : '1',
-    ];
-  }
-  (baseCats || []).forEach(function (c, i) {
-    const slug = String(c.slug || '').trim();
-    if (!slug) return;
-    if (!kmap[slug]) kmap[slug] = [slug, c.name || slug, i + 1, '1'];
-    else if (!String(kmap[slug][1] || '').trim()) kmap[slug][1] = c.name || slug;
-  });
-  kategori.clearContents();
-  kategori.appendRow(['Slug', 'Nama', 'Urutan', 'Aktif']);
-  Object.keys(kmap).forEach(function (slug) {
-    kategori.appendRow(kmap[slug]);
-  });
-
-  const ids = {};
-  produk.forEach(function (p) {
-    ids[p.id] = true;
-  });
-  const featured = readFeatured_().filter(function (id) {
-    return !!ids[id];
-  });
-  writeFeatured_(featured);
-  return { products: readProducts_(), categories: readCategories_(), featured: readFeatured_() };
 }
 
 function baseCategories_() {
@@ -559,29 +479,8 @@ function doPost(e) {
 
   if (action === 'setFeatured') {
     if (!authorized_(data)) return json_({ ok: false, error: 'forbidden' });
-    return withLock_(function () {
-      let next = readFeatured_();
-      const op = data.operation || {};
-      if (op.type === 'add' && op.id != null) {
-        next = next.filter(function (id) { return id !== String(op.id); });
-        next.push(String(op.id));
-      } else if (op.type === 'remove' && op.id != null) {
-        next = next.filter(function (id) { return id !== String(op.id); });
-      } else if (op.type === 'order' && Array.isArray(op.ids)) {
-        const wanted = op.ids.map(String);
-        next = wanted.concat(next.filter(function (id) { return wanted.indexOf(id) < 0; }));
-      } else {
-        next = Array.isArray(data.ids) ? data.ids.map(String) : next;
-      }
-      const seen = {};
-      next = next.filter(function (id) {
-        if (!id || seen[id]) return false;
-        seen[id] = true;
-        return true;
-      });
-      writeFeatured_(next);
-      return json_({ ok: true, stocks: readStocks_(), featured: readFeatured_() });
-    });
+    writeFeatured_(data.ids);
+    return json_({ ok: true, stocks: readStocks_(), featured: readFeatured_() });
   }
 
   if (action === 'setModals') {
@@ -595,26 +494,14 @@ function doPost(e) {
 
   if (action === 'setProducts') {
     if (!authorized_(data)) return json_({ ok: false, error: 'forbidden' });
-    return withLock_(function () {
-      const products = mergeProducts_(data.products, data.deleteIds);
-      return json_({ ok: true, products: products });
-    });
+    writeProducts_(data.products);
+    return json_({ ok: true, products: readProducts_() });
   }
 
   if (action === 'setCategories') {
     if (!authorized_(data)) return json_({ ok: false, error: 'forbidden' });
-    return withLock_(function () {
-      writeCategories_(data.categories);
-      return json_({ ok: true, categories: readCategories_() });
-    });
-  }
-
-  if (action === 'repair') {
-    if (!authorized_(data)) return json_({ ok: false, error: 'forbidden' });
-    return withLock_(function () {
-      const res = repairCatalog_(data.products, data.categories);
-      return json_({ ok: true, products: res.products, categories: res.categories, featured: res.featured });
-    });
+    writeCategories_(data.categories);
+    return json_({ ok: true, categories: readCategories_() });
   }
 
   if (action === 'setProductImage') {
