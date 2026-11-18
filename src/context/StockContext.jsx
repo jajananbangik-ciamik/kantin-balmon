@@ -21,11 +21,13 @@ export function StockProvider({ children }) {
   const [localStocks, setLocalStocks] = useState(loadLocal)
   const [featured, setFeatured] = useState([])
   const [loaded, setLoaded] = useState(false)
+  const [fetchOk, setFetchOk] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const inFlightRef = useRef(false)
   const hasLoadedRef = useRef(false)
 
   const isCentral = central !== null
+  const ready = isCentral ? loaded && fetchOk : loaded
 
   const refresh = useCallback(async ({ silent = false } = {}) => {
     const url = getSheetsUrl()
@@ -43,9 +45,13 @@ export function StockProvider({ children }) {
       if (res.ok) {
         setCentral(res.stocks)
         setFeatured(dedupe(res.featured || []))
-      } else if (!hasLoadedRef.current) {
-        setCentral({})
-        setFeatured([])
+        setFetchOk(true)
+      } else {
+        setFetchOk(false)
+        if (!hasLoadedRef.current) {
+          setCentral({})
+          setFeatured([])
+        }
       }
       hasLoadedRef.current = true
       setLoaded(true)
@@ -132,18 +138,45 @@ export function StockProvider({ children }) {
   )
 
   const updateFeatured = useCallback(
-    async (ids) => {
-      const next = dedupe(ids)
+    async (operation) => {
+      if (isCentral && !ready) return { ok: false, reason: 'not-ready' }
+      const op = Array.isArray(operation) ? { type: 'order', ids: operation } : operation || {}
+      const apply = (cur) => {
+        let next = dedupe(cur)
+        if (op.type === 'add' && op.id != null) {
+          next = next.filter((id) => id !== String(op.id)).concat(String(op.id))
+        } else if (op.type === 'remove' && op.id != null) {
+          next = next.filter((id) => id !== String(op.id))
+        } else if (op.type === 'order' && Array.isArray(op.ids)) {
+          const wanted = op.ids.map(String)
+          next = wanted.concat(next.filter((id) => !wanted.includes(id)))
+        }
+        return dedupe(next)
+      }
+
+      if (!isCentral) {
+        setFeatured((prev) => apply(prev))
+        return { ok: true }
+      }
+
+      const fresh = await fetchStocks()
+      if (!fresh.ok) {
+        await refresh()
+        return { ok: false, reason: fresh.reason || 'stale' }
+      }
+      const next = apply(fresh.featured || [])
       setFeatured(next)
-      const res = await postFeatured(next)
+      const res = await postFeatured(next, op)
       if (!res.ok) {
         await refresh()
         return res
       }
+      if (res.featured) setFeatured(dedupe(res.featured))
       if (res.stocks) setCentral(res.stocks)
+      setFetchOk(true)
       return res
     },
-    [refresh],
+    [isCentral, ready, refresh],
   )
 
   const value = useMemo(
@@ -155,11 +188,12 @@ export function StockProvider({ children }) {
       refresh,
       syncing,
       loaded,
+      ready,
       isCentral,
       featured,
       updateFeatured,
     }),
-    [getStock, setStock, removeStock, decrementStock, refresh, syncing, loaded, isCentral, featured, updateFeatured],
+    [getStock, setStock, removeStock, decrementStock, refresh, syncing, loaded, ready, isCentral, featured, updateFeatured],
   )
 
   return <StockContext.Provider value={value}>{children}</StockContext.Provider>

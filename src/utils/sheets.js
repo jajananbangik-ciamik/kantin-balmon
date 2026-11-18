@@ -152,14 +152,19 @@ export async function sendFeedback({ name, category, message }) {
   }
 }
 
-export async function saveProducts(rows) {
+export async function saveProducts(rows, { deleteIds = [] } = {}) {
   const url = getSheetsUrl()
   if (!url) return { ok: false, reason: 'not-configured' }
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'setProducts', products: rows, token: getStockToken() }),
+      body: JSON.stringify({
+        action: 'setProducts',
+        products: rows,
+        deleteIds,
+        token: getStockToken(),
+      }),
     })
     if (!res.ok) return { ok: false, reason: 'http-' + res.status }
     const data = await res.json()
@@ -190,14 +195,46 @@ export async function saveCategories(rows) {
   }
 }
 
-export async function setFeatured(ids) {
+export async function repairCatalog(products, categories) {
   const url = getSheetsUrl()
   if (!url) return { ok: false, reason: 'not-configured' }
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'setFeatured', ids, token: getStockToken() }),
+      body: JSON.stringify({
+        action: 'repair',
+        products,
+        categories,
+        token: getStockToken(),
+      }),
+    })
+    if (!res.ok) return { ok: false, reason: 'http-' + res.status }
+    const data = await res.json()
+    if (data && data.ok) {
+      return {
+        ok: true,
+        products: data.products || [],
+        categories: data.categories || [],
+        featured: data.featured || [],
+        stocks: data.stocks || {},
+      }
+    }
+    if (data && data.error) return { ok: false, reason: data.error }
+    return { ok: false, reason: 'bad-response' }
+  } catch (err) {
+    return { ok: false, reason: err.message }
+  }
+}
+
+export async function setFeatured(ids, operation = null) {
+  const url = getSheetsUrl()
+  if (!url) return { ok: false, reason: 'not-configured' }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'setFeatured', ids, operation, token: getStockToken() }),
     })
     if (!res.ok) return { ok: false, reason: 'http-' + res.status }
     const data = await res.json()

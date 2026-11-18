@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { categories as baseCategories, formatRupiah } from '../data/products'
+import { products as baseProducts, categories as baseCategories, formatRupiah } from '../data/products'
 import { useUploads, resizeImageFile } from '../context/UploadsContext'
 import { useStock } from '../context/StockContext'
 import { useCatalog } from '../context/CatalogContext'
-import { getSheetsUrl, setSheetsUrl, getStockToken, setStockToken, fetchReport, saveModals, verifyAdmin } from '../utils/sheets'
+import { getSheetsUrl, setSheetsUrl, getStockToken, setStockToken, fetchReport, saveModals, verifyAdmin, repairCatalog } from '../utils/sheets'
 import ProductImage from '../components/ProductImage'
 
 const PERIOD_LABELS = {
@@ -24,8 +24,8 @@ const checkAuthed = () => {
 }
 
 export default function Admin() {
-  const { uploads, centralImages, setUpload, removeUpload } = useUploads()
-  const { getStock, setStock, removeStock, refresh, syncing, isCentral, featured, updateFeatured, loaded } =
+  const { uploads, centralImages, setUpload, removeUpload, refreshUploads } = useUploads()
+  const { getStock, setStock, removeStock, refresh, syncing, isCentral, featured, updateFeatured, loaded, ready: stockReady } =
     useStock()
   const {
     products,
@@ -35,7 +35,9 @@ export default function Admin() {
     saveCatalog,
     saveCategories,
     loaded: catLoaded,
+    ready: catReady,
     syncing: catSyncing,
+    refresh: refreshCatalog,
   } = useCatalog()
   const [authed, setAuthed] = useState(checkAuthed)
   const [passInput, setPassInput] = useState('')
@@ -49,6 +51,7 @@ export default function Admin() {
   const [stockToken, setStockTokenState] = useState(getStockToken())
   const [sheetsSaved, setSheetsSaved] = useState(false)
   const [featDraft, setFeatDraft] = useState(null)
+  const [featOp, setFeatOp] = useState(null)
   const [featSaving, setFeatSaving] = useState(false)
   const [featSaved, setFeatSaved] = useState(false)
   const [featDragId, setFeatDragId] = useState(null)
@@ -66,6 +69,9 @@ export default function Admin() {
   const [menuSaving, setMenuSaving] = useState(false)
   const [menuSaved, setMenuSaved] = useState(false)
   const [menuDirty, setMenuDirty] = useState(false)
+  const [menuDeletedIds, setMenuDeletedIds] = useState([])
+  const [repairing, setRepairing] = useState(false)
+  const [repairMsg, setRepairMsg] = useState('')
   const [catDraft, setCatDraft] = useState(null)
   const [catUiLoaded, setCatUiLoaded] = useState(false)
   const [catUiSaving, setCatUiSaving] = useState(false)
@@ -73,6 +79,7 @@ export default function Admin() {
   const [catDirty, setCatDirty] = useState(false)
   const [catAutoWarning, setCatAutoWarning] = useState('')
   const featListRef = useRef(null)
+  const featDraftRef = useRef(null)
   const stockTimerRef = useRef(null)
   const menuTimerRef = useRef(null)
   const catTimerRef = useRef(null)
@@ -80,46 +87,44 @@ export default function Admin() {
   const modalTimerRef = useRef(null)
 
   useEffect(() => {
-    if (tab === 'menu' && !catUiLoaded) {
-      const seen = new Set()
-      const rows = []
-      categories.forEach((c) => {
-        rows.push({ slug: c.slug, name: c.name, active: true })
-        seen.add(c.slug)
-      })
-      catEdits
-        .filter((c) => c.active === false)
-        .forEach((c) => {
-          if (seen.has(c.slug)) return
-          rows.push({ slug: c.slug, name: c.name, active: false })
-          seen.add(c.slug)
-        })
-      baseCategories.forEach((c) => {
+    if (tab !== 'menu' || !catReady || catDirty) return
+    const seen = new Set()
+    const rows = []
+    categories.forEach((c) => {
+      rows.push({ slug: c.slug, name: c.name, active: true })
+      seen.add(c.slug)
+    })
+    catEdits
+      .filter((c) => c.active === false)
+      .forEach((c) => {
         if (seen.has(c.slug)) return
         rows.push({ slug: c.slug, name: c.name, active: false })
         seen.add(c.slug)
       })
-      setCatDraft(rows)
-      setCatUiLoaded(true)
-    }
+    baseCategories.forEach((c) => {
+      if (seen.has(c.slug)) return
+      rows.push({ slug: c.slug, name: c.name, active: true })
+      seen.add(c.slug)
+    })
+    setCatDraft((prev) => (JSON.stringify(prev) === JSON.stringify(rows) ? prev : rows))
+    setCatUiLoaded(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, catLoaded, categories, catEdits])
+  }, [tab, catReady, catDirty, categories, catEdits])
 
   useEffect(() => {
-    if (tab === 'menu' && !menuLoaded && catLoaded) {
-      const rows = allProducts.map((p) => ({
-        id: p.id,
-        name: p.name,
-        category: p.category,
-        price: p.price ?? null,
-        priceNote: p.priceNote || '',
-        active: p.active !== false,
-      }))
-      setMenuDraft(rows)
-      setMenuLoaded(true)
-    }
+    if (tab !== 'menu' || !catReady || menuDirty) return
+    const rows = allProducts.map((p) => ({
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      price: p.price ?? null,
+      priceNote: p.priceNote || '',
+      active: p.active !== false,
+    }))
+    setMenuDraft((prev) => (JSON.stringify(prev) === JSON.stringify(rows) ? prev : rows))
+    setMenuLoaded(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, menuLoaded, catLoaded, allProducts])
+  }, [tab, catReady, menuDirty, allProducts])
 
   useEffect(() => {
     if (tab === 'laporan') {
@@ -147,16 +152,17 @@ export default function Admin() {
   }, [stockInputs])
 
   useEffect(() => {
-    if (!menuDirty || !menuDraft) return
+    if (!menuDirty || !menuDraft || !catReady) return
     if (menuTimerRef.current) clearTimeout(menuTimerRef.current)
     setMenuSaving(true)
     menuTimerRef.current = setTimeout(async () => {
-      const res = await saveCatalog(menuDraft)
+      const res = await saveCatalog(menuDraft, { deleteIds: menuDeletedIds })
       if (!res.ok) {
-        alert('Gagal menyimpan menu: ' + res.reason)
+        if (res.reason !== 'not-ready') alert('Gagal menyimpan menu: ' + res.reason)
         setMenuSaving(false)
         return
       }
+      setMenuDeletedIds([])
       setMenuSaved(true)
       setMenuDirty(false)
       setMenuSaving(false)
@@ -164,10 +170,10 @@ export default function Admin() {
     }, 900)
     return () => clearTimeout(menuTimerRef.current)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menuDirty, menuDraft])
+  }, [menuDirty, menuDraft, menuDeletedIds, catReady])
 
   useEffect(() => {
-    if (!catDirty || !catDraft) return
+    if (!catDirty || !catDraft || !catReady) return
     if (catTimerRef.current) clearTimeout(catTimerRef.current)
     setCatUiSaving(true)
     catTimerRef.current = setTimeout(async () => {
@@ -192,27 +198,39 @@ export default function Admin() {
     }, 1200)
     return () => clearTimeout(catTimerRef.current)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catDirty, catDraft])
+  }, [catDirty, catDraft, catReady])
 
   useEffect(() => {
-    if (featDraft === null) return
+    if (!featOp || !stockReady) return
     if (featTimerRef.current) clearTimeout(featTimerRef.current)
     setFeatSaving(true)
     featTimerRef.current = setTimeout(async () => {
-      const res = await updateFeatured(featDraft)
+      const res = await updateFeatured(featOp)
       if (!res.ok) {
-        alert('Gagal menyimpan menu unggulan: ' + res.reason)
+        if (res.reason !== 'not-ready') alert('Gagal menyimpan menu unggulan: ' + res.reason)
         setFeatSaving(false)
         return
       }
       setFeatSaved(true)
       setFeatDraft(null)
+      setFeatOp(null)
       setFeatSaving(false)
       setTimeout(() => setFeatSaved(false), 2000)
     }, 700)
     return () => clearTimeout(featTimerRef.current)
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [featOp, stockReady])
+
+  useEffect(() => {
+    featDraftRef.current = featDraft
   }, [featDraft])
+
+  useEffect(() => {
+    if (featOp) return
+    setFeatDraft((prev) =>
+      prev === null || JSON.stringify(prev) === JSON.stringify(featured) ? prev : featured,
+    )
+  }, [featOp, featured])
 
   useEffect(() => {
     if (!modalDirty) return
@@ -296,9 +314,38 @@ export default function Admin() {
     setTimeout(() => setSheetsSaved(false), 2000)
   }
 
-  const featList = featDraft ?? featured
+  const repairData = async () => {
+    setRepairing(true)
+    setRepairMsg('')
+    const toRow = (p) => ({
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      price: p.price ?? null,
+      priceNote: p.priceNote || '',
+      active: p.active !== false,
+    })
+    const rows = baseProducts.map(toRow).concat(
+      allProducts
+        .filter((p) => !baseProducts.some((b) => b.id === p.id))
+        .map(toRow),
+    )
+    const cats = catDraft || categories.map((c) => ({ ...c, active: true }))
+    const res = await repairCatalog(rows, cats)
+    if (res.ok) {
+      await Promise.all([refreshCatalog(), refresh(), refreshUploads()])
+      setRepairMsg('Data katalog berhasil dirapikan.')
+    } else {
+      setRepairMsg('Gagal merapikan: ' + res.reason)
+    }
+    setRepairing(false)
+    setTimeout(() => setRepairMsg(''), 5000)
+  }
 
-  const featuredIndex = new Map(featured.map((id, i) => [id, i]))
+  const featList = featDraft ?? featured
+  const orphanFeatured = featList.filter((id) => !products.some((p) => p.id === id))
+
+  const featuredIndex = new Map(Array.from(new Set(featured)).map((id, i) => [id, i]))
   const sortedMenuRows = [...(menuDraft || [])]
     .filter((r) => !menuSearch || r.name.toLowerCase().includes(menuSearch.toLowerCase()))
     .sort((a, b) => {
@@ -308,10 +355,9 @@ export default function Admin() {
     })
 
   const toggleFeat = (id) => {
-    setFeatDraft((prev) => {
-      const cur = prev ?? featured
-      return cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
-    })
+    const adding = !featList.includes(id)
+    setFeatDraft(adding ? [...featList, id] : featList.filter((x) => x !== id))
+    setFeatOp(adding ? { type: 'add', id } : { type: 'remove', id })
   }
 
   const onFeatDragStart = (e, id) => {
@@ -349,7 +395,11 @@ export default function Admin() {
     })
   }
 
-  const onFeatDragEnd = () => setFeatDragId(null)
+  const onFeatDragEnd = () => {
+    setFeatDragId(null)
+    const order = featDraftRef.current ?? featList
+    if (order) setFeatOp({ type: 'order', ids: order })
+  }
 
   const updateMenuRow = (id, field, value) => {
     setMenuDirty(true)
@@ -360,6 +410,11 @@ export default function Admin() {
 
   const removeMenuRow = (id) => {
     setMenuDirty(true)
+    if (baseProducts.some((b) => b.id === id)) {
+      setMenuDraft((prev) => prev.map((r) => (r.id === id ? { ...r, active: false } : r)))
+      return
+    }
+    setMenuDeletedIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
     setMenuDraft((prev) => prev.filter((r) => r.id !== id))
   }
 
@@ -484,10 +539,24 @@ export default function Admin() {
           />
         </div>
         {sheetsSaved && <p className="hint ok">Pengaturan tersimpan.</p>}
+        {isCentral && catLoaded && !catReady && (
+          <p className="hint warn">
+            Google Sheets belum bisa dibaca. Perubahan menu belum boleh disimpan agar data tidak
+            hilang. Cek URL/token lalu klik "Muat Ulang Stok".
+          </p>
+        )}
         <p className="hint">
           Mode saat ini:{' '}
           <strong>{isCentral ? 'Stok terpusat (Google Sheets)' : 'Stok lokal (per perangkat)'}</strong>
         </p>
+        {isCentral && (
+          <div className="feat-actions">
+            <button className="btn btn-outline" onClick={repairData} disabled={repairing}>
+              {repairing ? 'Merapikan...' : 'Perbaiki Data Katalog'}
+            </button>
+            {repairMsg && <span className="hint">{repairMsg}</span>}
+          </div>
+        )}
       </section>
 
       <div className="admin-tabs">
@@ -874,11 +943,31 @@ export default function Admin() {
           </div>
           <section className="section">
             <h2 className="section-title">Produk Unggulan (urutan tampil)</h2>
+            {orphanFeatured.length > 0 && (
+              <p className="hint warn">
+                Ada {orphanFeatured.length} unggulan yang produknya sudah tidak ada di katalog.
+                Hapus dari daftar agar tidak menghilang di beranda.
+              </p>
+            )}
             <div className="stock-list feat-list" ref={featListRef}>
               {featList.length === 0 && <p className="hint">Belum ada produk unggulan.</p>}
               {featList.map((id, idx) => {
                 const p = products.find((x) => x.id === id)
-                if (!p) return null
+                if (!p) {
+                  return (
+                    <div key={id} data-feat-id={id} className="stock-row">
+                      <div className="stock-info">
+                        <p className="stock-name">(produk tidak ditemukan)</p>
+                        <p className="stock-status">Urutan {idx + 1} — {id}</p>
+                      </div>
+                      <div className="stock-actions">
+                        <button className="btn btn-outline" onClick={() => toggleFeat(id)}>
+                          Hapus
+                        </button>
+                      </div>
+                    </div>
+                  )
+                }
                 return (
                   <div
                     key={id}
